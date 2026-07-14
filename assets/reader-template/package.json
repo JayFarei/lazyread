@@ -1,0 +1,29 @@
+{
+  "name": "listen-read-reader",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "fetch:article": "node scripts/fetch-article.mjs",
+    "content:prepare": "node scripts/prepare-content.mjs",
+    "generate:audio": ".venv/bin/python scripts/generate_audio.py",
+    "validate:audio": "node scripts/validate-audio.mjs",
+    "dev": "vite --host 127.0.0.1",
+    "build": "npm run content:prepare && tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port __LISTEN_READ_PORT__",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "jsdom": "^26.1.0",
+    "marked": "^15.0.12",
+    "sanitize-html": "^2.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "@types/sanitize-html": "^2.16.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.3"
+  }
+}

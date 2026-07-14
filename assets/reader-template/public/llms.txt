@@ -1,0 +1,3 @@
+# Listen Read
+
+A private synchronized listening reader with fully preloaded local narration.
