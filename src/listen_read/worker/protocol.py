@@ -16,6 +16,9 @@ class NarrationWord:
     id: str
     text: str
     ordinal: int
+    display_word_id: str | None = None
+    sentence_end: bool = False
+    sentence_suffix: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +60,14 @@ class NarrationRequest:
                     ordinal=chunk.ordinal,
                     text=chunk.text,
                     words=tuple(
-                        NarrationWord(id=word.id, text=word.text, ordinal=word.ordinal)
+                        NarrationWord(
+                            id=word.id,
+                            text=word.text,
+                            ordinal=word.ordinal,
+                            display_word_id=word.display_word_id,
+                            sentence_end=word.sentence_end,
+                            sentence_suffix=word.sentence_suffix,
+                        )
                         for word in chunk.words
                     ),
                 )
@@ -93,6 +103,13 @@ class NarrationRequest:
                             id=str(word["id"]),
                             text=str(word["text"]),
                             ordinal=int(word["ordinal"]),
+                            display_word_id=(
+                                str(word["display_word_id"])
+                                if word.get("display_word_id") is not None
+                                else None
+                            ),
+                            sentence_end=bool(word.get("sentence_end", False)),
+                            sentence_suffix=str(word.get("sentence_suffix", "")),
                         )
                         for word in chunk.get("words", ())
                     ),

@@ -33,6 +33,8 @@ class RequestHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def do_GET(self) -> None:  # noqa: N802
+        if not self._guard_request():
+            return
         parsed = urlsplit(self.path)
         parts = [part for part in parsed.path.split("/") if part]
         try:
@@ -68,6 +70,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._json(400, {"error": "invalid_request", "message": str(error)})
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._guard_request(write=True):
+            return
         parsed = urlsplit(self.path)
         parts = [part for part in parsed.path.split("/") if part]
         try:
@@ -113,6 +117,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._json(400, {"error": "invalid_request", "message": str(error)})
 
     def do_DELETE(self) -> None:  # noqa: N802
+        if not self._guard_request(write=True):
+            return
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
         try:
             if len(parts) == 3 and parts[:2] == ["api", "articles"]:
@@ -125,11 +131,49 @@ class RequestHandler(BaseHTTPRequestHandler):
         except ValueError as error:
             self._json(409, {"error": "conflict", "message": str(error)})
 
+    def do_PUT(self) -> None:  # noqa: N802
+        if not self._guard_request(write=True):
+            return
+        parts = [part for part in urlsplit(self.path).path.split("/") if part]
+        try:
+            if len(parts) == 4 and parts[:2] == ["api", "articles"] and parts[3] == "highlights":
+                body = self._body()
+                highlights = body.get("highlights")
+                if not isinstance(highlights, list):
+                    raise ValueError("highlights must be an array")
+                self._json(200, {"highlights": self.server.runtime.replace_highlights(parts[2], highlights)})
+            else:
+                self._json(404, {"error": "not_found"})
+        except KeyError as error:
+            self._json(404, {"error": "article_not_found", "article_id": str(error.args[0])})
+        except (ValueError, json.JSONDecodeError) as error:
+            self._json(400, {"error": "invalid_request", "message": str(error)})
+
     def _body(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
         if length > 10 * 1024 * 1024:
             raise ValueError("request body exceeds 10 MiB")
         return json.loads(self.rfile.read(length) or b"{}")
+
+    def _guard_request(self, *, write: bool = False) -> bool:
+        host = urlsplit(f"//{self.headers.get('Host', '')}").hostname or ""
+        trusted_host = host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".ts.net")
+        if not trusted_host:
+            self._json(421, {"error": "untrusted_host"})
+            return False
+        origin = self.headers.get("Origin")
+        origin_host = urlsplit(origin).hostname if origin else None
+        if self.headers.get("Sec-Fetch-Site") == "cross-site" or (
+            origin_host is not None and origin_host != host
+        ):
+            self._json(403, {"error": "cross_origin_request_blocked"})
+            return False
+        if write and not self.headers.get("Content-Type", "").lower().startswith(
+            "application/json"
+        ):
+            self._json(415, {"error": "application_json_required"})
+            return False
+        return True
 
     def _timings(self, article_id: str) -> None:
         path = self.server.runtime.artifact_path(article_id, "timings.json")
@@ -259,6 +303,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store" if "json" in content_type else "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; "
+            "font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        )
         self.end_headers()
         self.wfile.write(data)
 

@@ -74,3 +74,5 @@ def test_prepared_document_round_trips_through_public_json_contract() -> None:
 
     assert restored == prepared
     assert restored.schema_version == 1
+    assert [word.sentence_suffix for word in restored.speech.chunks[0].words][-1] == "."
+    assert restored.speech.chunks[0].text.endswith("document.")

@@ -4,6 +4,11 @@ Listen Read turns URLs and Markdown into a private local listening library: read
 
 It is an early public release for **Apple Silicon Macs**. Text extraction and the web library are lightweight; natural narration uses MLX, Qwen3-TTS 1.7B CustomVoice, and Qwen3 ForcedAligner. Article content and finished audio stay on the Mac. URL extraction still accesses the source website.
 
+Prerequisites are macOS 14 or newer, Node.js 20.19+, FFmpeg 6+, and UV 0.5+.
+`listen-read doctor` reports exact versions and Homebrew repair commands before
+setup changes anything. These small system tools are not installed silently;
+Defuddle, Python/MLX packages, and models are installed into app-owned storage.
+
 ## Quick start
 
 The runtime is currently installed from GitHub through UVX:
@@ -38,6 +43,10 @@ uvx --from git+https://github.com/JayFarei/listen-read listen-read expose --http
 ```
 
 Listen Read never enables Funnel and never resets the machine's Tailscale Serve configuration.
+The Tailscale listener trusts the tailnet: every principal allowed to reach the
+Mac by its tailnet ACL can use the complete library API, including deletion.
+Use it only on a personal tailnet or restrict the device/port with Tailscale
+ACLs. A future public multi-user release will add per-user pairing.
 
 ## What is persisted
 

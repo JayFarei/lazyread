@@ -23,6 +23,10 @@ listen-read = "listen_read.cli:entrypoint"
 [project.optional-dependencies]
 test = ["pytest>=8.3"]
 
+[tool.hatch.build]
+# Keep the source tree ahead of force-included runtime assets in editable installs.
+dev-mode-dirs = ["src"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/listen_read"]
 
@@ -31,6 +35,10 @@ packages = ["src/listen_read"]
 "assets/reader-template/scripts/generate_audio.py" = "listen_read/worker_template/scripts/generate_audio.py"
 "skills/listen-read" = "listen_read/skills/listen-read"
 "skills/defuddle" = "listen_read/skills/defuddle"
+"packaging/worker-requirements.lock" = "listen_read/worker-requirements.lock"
+"packaging/defuddle/package.json" = "listen_read/defuddle-package/package.json"
+"packaging/defuddle/package-lock.json" = "listen_read/defuddle-package/package-lock.json"
+"THIRD_PARTY_NOTICES.md" = "listen_read/THIRD_PARTY_NOTICES.md"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -39,6 +47,7 @@ include = [
   "/web/dist",
   "/assets/reader-template/scripts/generate_audio.py",
   "/skills",
+  "/packaging",
   "/README.md",
   "/LICENSE",
   "/THIRD_PARTY_NOTICES.md",

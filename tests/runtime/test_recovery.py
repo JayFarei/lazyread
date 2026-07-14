@@ -39,3 +39,17 @@ def test_submission_notifies_an_injected_pipeline_without_loading_a_model(tmp_pa
         assert fake.calls == [(created["article"]["id"], tmp_path / "home")]
     finally:
         runtime.close()
+
+
+def test_restart_recovers_text_ready_jobs_instead_of_stranding_them(tmp_path: Path) -> None:
+    settings = Settings(home=tmp_path / "home")
+    first = Runtime(settings)
+    article_id = first.submit_markdown("# Recovery\n\nText is already readable.")["article"]["id"]
+    first.transition_job(article_id, "text_ready", phase="text_ready", completed=0, total=2)
+    first.close()
+
+    restarted = Runtime(settings)
+    try:
+        assert restarted.get_article(article_id)["job"]["state"] == "interrupted"
+    finally:
+        restarted.close()

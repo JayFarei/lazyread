@@ -16,6 +16,7 @@ from .app import create_runtime
 from .config import Settings
 from .doctor import report as doctor_report
 from .network import expose_tailscale
+from .pipeline import PreparedDocument
 from .runtime import Runtime
 from .server import create_server
 from .setup import install_dependencies, setup_plan
@@ -23,6 +24,84 @@ from .skills import install_skills
 
 
 Writer = Callable[[str], None]
+
+
+def _submission_payload(args: argparse.Namespace, input_stream: object) -> dict:
+    if args.markdown:
+        markdown = input_stream.read() if args.markdown == "-" else Path(args.markdown).read_text(encoding="utf-8")
+        return {"markdown": markdown, "title": args.title, "source_url": args.source_url}
+    if args.prepared:
+        prepared = json.loads(Path(args.prepared).read_text(encoding="utf-8"))
+        document = None
+        if "display" in prepared or "speech" in prepared:
+            PreparedDocument.from_dict(prepared)
+            document = prepared
+        markdown = prepared.get(
+            "display_markdown",
+            prepared.get("markdown", prepared.get("display", {}).get("markdown", "")),
+        )
+        if not markdown:
+            raise ValueError("prepared document requires display_markdown or markdown")
+        return {
+            "markdown": markdown,
+            "title": args.title or prepared.get("title") or prepared.get("display", {}).get("title"),
+            "source_url": args.source_url
+            or prepared.get("source_url")
+            or prepared.get("provenance", {}).get("source_url"),
+            **({"document": document} if document is not None else {}),
+        }
+    if args.source:
+        if args.source.startswith(("http://", "https://")):
+            return {"source_url": args.source, "title": args.title}
+        return {
+            "markdown": Path(args.source).read_text(encoding="utf-8"),
+            "title": args.title,
+            "source_url": args.source_url,
+        }
+    raise ValueError("provide a URL, Markdown path, --markdown, or --prepared")
+
+
+def _server_base(settings: Settings) -> str:
+    host = "127.0.0.1" if settings.host in {"0.0.0.0", "::"} else settings.host
+    return f"http://{host}:{settings.port}"
+
+
+def _submit_to_running_server(settings: Settings, payload: dict) -> dict | None:
+    base = _server_base(settings)
+    try:
+        with urllib.request.urlopen(f"{base}/api/health", timeout=0.25) as response:
+            if response.status != 200:
+                return None
+    except OSError:
+        return None
+    request = urllib.request.Request(
+        f"{base}/api/articles",
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        return json.loads(response.read())
+
+
+def _action_on_running_server(
+    settings: Settings, command: str, article_id: str
+) -> dict | None:
+    base = _server_base(settings)
+    try:
+        with urllib.request.urlopen(f"{base}/api/health", timeout=0.25) as response:
+            if response.status != 200:
+                return None
+    except OSError:
+        return None
+    request = urllib.request.Request(
+        f"{base}/api/articles/{article_id}/{command}",
+        data=b"{}",
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=190) as response:
+        return json.loads(response.read())
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -98,7 +177,10 @@ def main(
                 return 3
             compatibility = doctor_report(settings.home)
             if not compatibility["supported"]:
-                raise OSError("local narration requires macOS on Apple Silicon")
+                raise OSError(
+                    "setup requirements are not satisfied: "
+                    + ", ".join(compatibility["blockers"])
+                )
             data = install_dependencies(
                 settings,
                 download_models=not args.skip_model_download,
@@ -126,31 +208,35 @@ def main(
                 return 0
             return _serve(settings, write, args.json)
 
-        runtime = Runtime(settings)
+        submission = _submission_payload(args, input_stream) if args.command == "add" else None
+        if submission is not None:
+            data = _submit_to_running_server(settings, submission)
+            if data is not None:
+                _emit(write, data, as_json=args.json)
+                return 0
+
+        if args.command in {"trash", "restore", "purge"}:
+            if args.command != "purge" or args.yes:
+                data = _action_on_running_server(settings, args.command, args.article_id)
+                if data is not None:
+                    _emit(write, data, as_json=args.json)
+                    return 0
+
+        runtime = Runtime(settings, recover_interrupted=False)
         try:
             if args.command == "add":
-                if args.markdown:
-                    markdown = input_stream.read() if args.markdown == "-" else Path(args.markdown).read_text(encoding="utf-8")
-                    data = runtime.submit_markdown(markdown, title=args.title, source_url=args.source_url)
-                elif args.prepared:
-                    prepared = json.loads(Path(args.prepared).read_text(encoding="utf-8"))
-                    markdown = prepared.get("display_markdown", prepared.get("markdown", ""))
-                    if not markdown:
-                        raise ValueError("prepared document requires display_markdown or markdown")
+                assert submission is not None
+                if submission.get("markdown"):
                     data = runtime.submit_markdown(
-                        markdown,
-                        title=args.title or prepared.get("title"),
-                        source_url=args.source_url or prepared.get("source_url"),
-                        prepared_document=prepared,
+                        submission["markdown"],
+                        title=submission.get("title"),
+                        source_url=submission.get("source_url"),
+                        prepared_document=submission.get("document"),
                     )
-                elif args.source:
-                    if args.source.startswith(("http://", "https://")):
-                        data = runtime.submit_source(args.source, title=args.title)
-                    else:
-                        markdown = Path(args.source).read_text(encoding="utf-8")
-                        data = runtime.submit_markdown(markdown, title=args.title, source_url=args.source_url)
                 else:
-                    raise ValueError("provide a URL, Markdown path, --markdown, or --prepared")
+                    data = runtime.submit_source(
+                        submission["source_url"], title=submission.get("title")
+                    )
             elif args.command == "list":
                 data = {"articles": runtime.list_articles(include_trashed=args.include_trashed)}
             elif args.command == "show":
@@ -196,8 +282,9 @@ def _emit(write: Writer, data: dict, *, as_json: bool) -> None:
 
 
 def _serve(settings: Settings, write: Writer, as_json: bool) -> int:
-    runtime, dispatcher = create_runtime(settings)
+    runtime, dispatcher = create_runtime(settings, resume_pending=False)
     server = create_server(runtime, host=settings.host, port=settings.port)
+    dispatcher.resume_pending()
     pid_file = settings.home / "runtime" / "server.pid"
     pid_file.write_text(str(os.getpid()), encoding="utf-8")
 

@@ -41,12 +41,12 @@ export function sentenceRanges(words: WordTiming[]): Highlight[] {
   const result: Highlight[] = [];
   let start = 0;
   for (const [position, word] of words.entries()) {
-    const closes = /[.!?][\]})"'’”]*$/.test(word.text);
+    const closes = word.sentenceEnd || /[.!?][\]})"'’”]*$/.test(word.text);
     if (!closes && position < words.length - 1) continue;
     const slice = words.slice(start, position + 1);
     if (slice.length) result.push({
       id: `${slice[0]!.index}-${slice.at(-1)!.index}`,
-      text: slice.map((item) => item.text).join(" "),
+      text: `${slice.map((item) => item.text).join(" ")}${word.sentenceSuffix ?? ""}`,
       startIndex: slice[0]!.index,
       endIndex: slice.at(-1)!.index,
     });

@@ -6,6 +6,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import pytest
+
 from listen_read.config import Settings
 from listen_read.runtime import Runtime
 from listen_read.server import create_server
@@ -155,6 +157,69 @@ def test_http_retry_cancel_and_post_purge_actions(tmp_path: Path) -> None:
         assert cancelled["job"]["state"] == "cancelled"
         request(base, f"/api/articles/{article_id}/trash", method="POST")
         assert request(base, f"/api/articles/{article_id}/purge", method="POST")[2] == {"purged": article_id}
+    finally:
+        server.shutdown()
+        server.server_close()
+        runtime.close()
+        thread.join(timeout=3)
+
+
+def test_highlights_persist_in_the_article_library(tmp_path: Path) -> None:
+    runtime = Runtime(Settings(home=tmp_path / "home"))
+    article_id = runtime.submit_markdown("# Notes\n\nKeep this sentence.")["article"]["id"]
+    server = create_server(runtime, host="127.0.0.1", port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        saved = request(
+            base,
+            f"/api/articles/{article_id}/highlights",
+            method="PUT",
+            body={"highlights": [{"id": "0-3", "text": "Keep this sentence.", "startIndex": 0, "endIndex": 3}]},
+        )[2]
+
+        assert saved["highlights"][0]["text"] == "Keep this sentence."
+        assert request(base, f"/api/articles/{article_id}")[2]["article"]["highlights"][0]["id"] == "0-3"
+    finally:
+        server.shutdown()
+        server.server_close()
+        runtime.close()
+        thread.join(timeout=3)
+
+
+def test_http_boundary_blocks_dns_rebinding_cross_site_writes_and_plain_forms(tmp_path: Path) -> None:
+    runtime = Runtime(Settings(home=tmp_path / "home"))
+    server = create_server(runtime, host="127.0.0.1", port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    try:
+        bad_host = urllib.request.Request(base + "/api/health", headers={"Host": "evil.example"})
+        with pytest.raises(urllib.error.HTTPError) as host_error:
+            urllib.request.urlopen(bad_host)
+        assert host_error.value.code == 421
+
+        hostile = urllib.request.Request(
+            base + "/api/articles",
+            data=b'{"markdown":"# Hostile"}',
+            method="POST",
+            headers={"Content-Type": "application/json", "Origin": "https://evil.example"},
+        )
+        with pytest.raises(urllib.error.HTTPError) as origin_error:
+            urllib.request.urlopen(hostile)
+        assert origin_error.value.code == 403
+
+        plain = urllib.request.Request(
+            base + "/api/articles",
+            data=b'{"markdown":"# Form"}',
+            method="POST",
+            headers={"Content-Type": "text/plain"},
+        )
+        with pytest.raises(urllib.error.HTTPError) as type_error:
+            urllib.request.urlopen(plain)
+        assert type_error.value.code == 415
+        assert runtime.list_articles() == []
     finally:
         server.shutdown()
         server.server_close()

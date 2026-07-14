@@ -9,6 +9,7 @@ import urllib.request
 from pathlib import Path
 
 from listen_read.cli import main
+from listen_read.pipeline import DocumentPipeline, acquire_markdown
 
 
 def invoke(home: Path, *args: str) -> tuple[int, str]:
@@ -52,12 +53,47 @@ def test_storage_reports_durable_categories(tmp_path: Path) -> None:
     assert storage["total"]["bytes"] >= storage["articles"]["bytes"]
 
 
+def test_cli_accepts_the_nested_prepared_document_contract(tmp_path: Path) -> None:
+    prepared = tmp_path / "prepared.json"
+    document = DocumentPipeline().prepare(
+        acquire_markdown("# Prepared title\n\nRead me.")
+    )
+    prepared.write_text(
+        json.dumps(document.to_dict()),
+        encoding="utf-8",
+    )
+
+    code, raw = invoke(tmp_path / "home", "add", "--prepared", str(prepared))
+    created = json.loads(raw)
+
+    assert code == 0
+    assert created["article"]["title"] == "Prepared title"
+    assert created["article"]["markdown"].startswith("# Prepared title")
+    assert created["article"]["document"]["speech"]["policy"]["citations"] == "omit_numeric"
+
+
+def test_cli_rejects_an_incomplete_nested_prepared_document(tmp_path: Path) -> None:
+    prepared = tmp_path / "incomplete.json"
+    prepared.write_text(
+        json.dumps({"display": {"markdown": "# Incomplete"}, "speech": {"text": "Incomplete"}}),
+        encoding="utf-8",
+    )
+
+    code, raw = invoke(tmp_path / "home", "add", "--prepared", str(prepared))
+
+    assert code == 1
+    assert json.loads(raw)["error"] == "KeyError"
+
+
 def test_doctor_is_machine_readable_and_never_downloads_models(tmp_path: Path) -> None:
     code, raw = invoke(tmp_path / "home", "doctor")
     report = json.loads(raw)
 
     assert code in {0, 2}
-    assert report["supported"] is (report["platform"]["system"] == "Darwin" and report["platform"]["machine"] == "arm64")
+    assert report["supported"] is (not report["blockers"])
+    assert report["requirements"]["platform"] is (
+        report["platform"]["system"] == "Darwin" and report["platform"]["machine"] == "arm64"
+    )
     assert report["home"] == str(tmp_path / "home")
     assert report["downloads_started"] is False
     assert {"disk", "memory", "python", "node", "defuddle", "ffmpeg", "uv", "tailscale"} <= set(report["checks"])

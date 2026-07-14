@@ -9,6 +9,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 from importlib.metadata import distribution
@@ -27,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ARTICLE_PATH = ROOT / "src/generated/article.json"
 PUBLIC_AUDIO = ROOT / "public/audio"
 TMP_AUDIO = ROOT / "tmp/audio"
+CHUNK_CACHE = Path(os.environ.get("LISTEN_READ_CHUNK_CACHE", TMP_AUDIO))
 
 TTS_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16"
 ALIGN_MODEL = "mlx-community/Qwen3-ForcedAligner-0.6B-8bit"
@@ -144,6 +146,7 @@ def generate(force: bool) -> None:
 
     PUBLIC_AUDIO.mkdir(parents=True, exist_ok=True)
     TMP_AUDIO.mkdir(parents=True, exist_ok=True)
+    CHUNK_CACHE.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading {TTS_MODEL}", flush=True)
     tts_load_started = time.perf_counter()
@@ -163,11 +166,38 @@ def generate(force: bool) -> None:
 
     for ordinal, chunk in enumerate(article["chunks"], start=1):
         chunk_id = int(chunk["index"])
-        chunk_wav = TMP_AUDIO / f"chunk-{chunk_id:03d}.wav"
         text = str(chunk["text"])
+        cache_payload = json.dumps(
+            {
+                "text": text,
+                "voice": VOICE,
+                "settings": {
+                    "style": STYLE,
+                    "temperature": 0.75,
+                    "top_p": 0.92,
+                    "repetition_penalty": 1.08,
+                    "max_tokens": 4096,
+                    "language": "English",
+                },
+                "model_revision": tts_model_revision,
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        chunk_wav = CHUNK_CACHE / f"chunk-v1-{hashlib.sha256(cache_payload).hexdigest()}.wav"
         chunk_started = time.perf_counter()
         cache_hit = chunk_wav.exists() and not force
         synthesis_seconds = 0.0
+
+        if cache_hit:
+            try:
+                cached_rate, cached_pcm = wavfile.read(chunk_wav)
+                if cached_rate != sample_rate or cached_pcm.size == 0:
+                    raise ValueError("invalid cached WAV")
+            except (OSError, ValueError):
+                chunk_wav.unlink(missing_ok=True)
+                cache_hit = False
 
         if not cache_hit:
             print(
@@ -193,7 +223,19 @@ def generate(force: bool) -> None:
             if not results:
                 raise RuntimeError(f"TTS returned no audio for chunk {chunk_id}")
             audio = np.concatenate([np.asarray(result.audio) for result in results])
-            write_wav(chunk_wav, sample_rate, audio.astype(np.float32))
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{chunk_wav.name}.", suffix=".wav", dir=CHUNK_CACHE
+            )
+            os.close(descriptor)
+            temporary = Path(temporary_name)
+            try:
+                write_wav(temporary, sample_rate, audio.astype(np.float32))
+                with temporary.open("rb") as stream:
+                    os.fsync(stream.fileno())
+                os.replace(temporary, chunk_wav)
+            except BaseException:
+                temporary.unlink(missing_ok=True)
+                raise
 
         loaded_rate, pcm = wavfile.read(chunk_wav)
         if loaded_rate != sample_rate:
@@ -232,6 +274,22 @@ def generate(force: bool) -> None:
                 "alignmentSeconds": round(alignment_seconds, 3),
                 "totalSeconds": round(time.perf_counter() - chunk_started, 3),
             }
+        )
+        print(
+            "LISTEN_READ_EVENT "
+            + json.dumps(
+                {
+                    "type": "chunk_completed",
+                    "ordinal": ordinal - 1,
+                    "chunk_index": chunk_id,
+                    "duration_seconds": round(len(audio_float) / sample_rate, 3),
+                    "cache_hit": cache_hit,
+                    "synthesis_seconds": round(synthesis_seconds, 3),
+                    "alignment_seconds": round(alignment_seconds, 3),
+                },
+                separators=(",", ":"),
+            ),
+            flush=True,
         )
         mx.clear_cache()
 

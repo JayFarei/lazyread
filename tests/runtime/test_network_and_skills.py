@@ -39,6 +39,23 @@ def test_skill_installer_does_not_silently_overwrite_existing_skills(tmp_path: P
     assert existing.read_text() == "custom"
 
 
+def test_skill_installer_preserves_a_shared_skill_symlink(tmp_path: Path) -> None:
+    codex = tmp_path / ".codex" / "skills"
+    claude = tmp_path / ".claude" / "skills"
+    shared = claude / "defuddle"
+    shared.mkdir(parents=True)
+    (shared / "SKILL.md").write_text("old", encoding="utf-8")
+    codex.mkdir(parents=True)
+    (codex / "defuddle").symlink_to(shared)
+
+    install_skills([codex, claude], force=True)
+
+    assert (codex / "defuddle").is_symlink()
+    assert (codex / "defuddle" / "SKILL.md").read_text(encoding="utf-8") == (
+        claude / "defuddle" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+
+
 def test_tailscale_exposure_adds_only_the_requested_unused_port(tmp_path: Path) -> None:
     calls: list[list[str]] = []
 
@@ -56,6 +73,7 @@ def test_tailscale_exposure_adds_only_the_requested_unused_port(tmp_path: Path) 
         Settings(home=tmp_path / "home", port=4246),
         https_port=7447,
         runner=run,
+        health_check=lambda _settings: True,
     )
 
     assert result == {
@@ -83,4 +101,30 @@ def test_tailscale_exposure_refuses_to_replace_an_unrelated_route(tmp_path: Path
             Settings(home=tmp_path / "home", port=4246),
             https_port=7447,
             runner=run,
+            health_check=lambda _settings: True,
+        )
+
+
+def test_tailscale_exposure_refuses_a_non_listen_read_local_port(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="refusing to expose"):
+        expose_tailscale(
+            Settings(home=tmp_path / "home", port=9999),
+            https_port=7447,
+            runner=lambda command, **kwargs: subprocess.CompletedProcess(command, 0, "{}", ""),
+            health_check=lambda _settings: False,
+        )
+
+
+def test_tailscale_exposure_refuses_an_existing_non_web_tcp_listener(tmp_path: Path) -> None:
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            command, 0, json.dumps({"TCP": {"7447": {"TCPForward": "127.0.0.1:9999"}}}), ""
+        )
+
+    with pytest.raises(ValueError, match="already owned"):
+        expose_tailscale(
+            Settings(home=tmp_path / "home", port=4246),
+            https_port=7447,
+            runner=run,
+            health_check=lambda _settings: True,
         )

@@ -39,6 +39,19 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS events_article_sequence
 ON events(article_id, sequence);
+
+CREATE TABLE IF NOT EXISTS highlights (
+    id TEXT NOT NULL,
+    article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    start_index INTEGER NOT NULL,
+    end_index INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (article_id, id)
+);
+
+CREATE INDEX IF NOT EXISTS highlights_article
+ON highlights(article_id, created_at);
 """
 
 

@@ -12,6 +12,9 @@ export type WordTiming = {
   text: string;
   start: number;
   end: number;
+  displayWordId?: string | null;
+  sentenceEnd?: boolean;
+  sentenceSuffix?: string;
 };
 
 export type AudioManifest = {
@@ -58,6 +61,7 @@ export type Article = {
   peakMemoryBytes?: number;
   artifactBytes?: number;
   warnings: string[];
+  highlights?: Highlight[];
 };
 
 export type Highlight = {

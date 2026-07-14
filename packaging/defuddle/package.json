@@ -1,0 +1,8 @@
+{
+  "name": "listen-read-defuddle-runtime",
+  "private": true,
+  "version": "0.1.0",
+  "dependencies": {
+    "defuddle": "0.19.1"
+  }
+}

@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import signal
+import shutil
 import subprocess
 import tempfile
+import threading
 from typing import Any, Callable, Iterator
 from urllib.parse import urlsplit
 
@@ -13,6 +16,7 @@ from .validation import NarrationTiming, TimingBounds, validate_timings
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
+EVENT_PREFIX = "LISTEN_READ_EVENT "
 
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
@@ -45,7 +49,7 @@ class MlxTemplateWorkerAdapter:
         self,
         *,
         project_root: Path,
-        runner: Runner = subprocess.run,
+        runner: Runner | None = None,
         command: list[str] | None = None,
         environment: dict[str, str] | None = None,
     ) -> None:
@@ -55,6 +59,24 @@ class MlxTemplateWorkerAdapter:
             str(self._project_root / "scripts" / "generate_audio.py")
         ]
         self._environment = environment
+        self._process_lock = threading.Lock()
+        self._process: subprocess.Popen[str] | None = None
+        self._cancel_requested = threading.Event()
+
+    def cancel(self) -> None:
+        self._cancel_requested.set()
+        with self._process_lock:
+            process = self._process
+        if process is None or process.poll() is not None:
+            return
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except (OSError, ProcessLookupError):
+            process.terminate()
+
+    def cleanup(self) -> None:
+        """Remove per-job intermediates after durable artifacts are published."""
+        shutil.rmtree(self._project_root, ignore_errors=True)
 
     def run(self, request: NarrationRequest) -> Iterator[WorkerEvent]:
         yield WorkerEvent(
@@ -69,20 +91,71 @@ class MlxTemplateWorkerAdapter:
         )
         self._write_legacy_article(request)
         yield WorkerEvent(request.job_id, 1, "mlx_process_started", {})
+        sequence = 2
         try:
-            arguments: dict[str, Any] = {
-                "cwd": self._project_root,
-                "capture_output": True,
-                "text": True,
-                "check": False,
-            }
-            if self._environment is not None:
-                arguments["env"] = self._environment
-            result = self._runner(list(self._command), **arguments)
+            if self._runner is not None:
+                arguments: dict[str, Any] = {
+                    "cwd": self._project_root,
+                    "capture_output": True,
+                    "text": True,
+                    "check": False,
+                }
+                if self._environment is not None:
+                    arguments["env"] = self._environment
+                result = self._runner(list(self._command), **arguments)
+            else:
+                lines: list[str] = []
+                process = subprocess.Popen(
+                    list(self._command),
+                    cwd=self._project_root,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    env=self._environment,
+                    start_new_session=True,
+                )
+                with self._process_lock:
+                    self._process = process
+                if self._cancel_requested.is_set():
+                    self.cancel()
+                try:
+                    assert process.stdout is not None
+                    for line in process.stdout:
+                        lines.append(line)
+                        if len(lines) > 100:
+                            lines.pop(0)
+                        progress = self._progress_event(request, line, sequence)
+                        if progress is not None:
+                            yield progress
+                            sequence += 1
+                    returncode = process.wait()
+                finally:
+                    if process.poll() is None:
+                        try:
+                            os.killpg(process.pid, signal.SIGTERM)
+                        except (OSError, ProcessLookupError):
+                            process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            try:
+                                os.killpg(process.pid, signal.SIGKILL)
+                            except (OSError, ProcessLookupError):
+                                process.kill()
+                    with self._process_lock:
+                        if self._process is process:
+                            self._process = None
+                result = subprocess.CompletedProcess(
+                    self._command,
+                    returncode,
+                    "".join(lines),
+                    "",
+                )
         except OSError as exc:
             yield WorkerEvent(
                 request.job_id,
-                2,
+                sequence,
                 "worker_failed",
                 {
                     "message": f"MLX worker could not start: {type(exc).__name__}",
@@ -94,7 +167,7 @@ class MlxTemplateWorkerAdapter:
         if result.returncode != 0:
             yield WorkerEvent(
                 request.job_id,
-                2,
+                sequence,
                 "worker_failed",
                 {
                     "message": f"MLX worker exited with status {result.returncode}.",
@@ -113,7 +186,7 @@ class MlxTemplateWorkerAdapter:
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
             yield WorkerEvent(
                 request.job_id,
-                2,
+                sequence,
                 "worker_failed",
                 {
                     "message": f"MLX output failed validation: {type(exc).__name__}",
@@ -125,7 +198,7 @@ class MlxTemplateWorkerAdapter:
         if not report.valid:
             yield WorkerEvent(
                 request.job_id,
-                2,
+                sequence,
                 "worker_failed",
                 {
                     "message": "MLX output did not pass the timing publication gate.",
@@ -138,13 +211,13 @@ class MlxTemplateWorkerAdapter:
 
         yield WorkerEvent(
             request.job_id,
-            2,
+            sequence,
             "validation_completed",
             {"valid": True, "repair_stage": None},
         )
         yield WorkerEvent(
             request.job_id,
-            3,
+            sequence + 1,
             "worker_completed",
             {
                 "audio_url": str(manifest["audio"]),
@@ -160,6 +233,35 @@ class MlxTemplateWorkerAdapter:
                 ),
                 "duration_seconds": float(manifest["duration"]),
                 "word_count": len(manifest["words"]),
+            },
+        )
+
+    @staticmethod
+    def _progress_event(
+        request: NarrationRequest, line: str, sequence: int
+    ) -> WorkerEvent | None:
+        if not line.startswith(EVENT_PREFIX):
+            return None
+        try:
+            payload = json.loads(line.removeprefix(EVENT_PREFIX))
+            ordinal = int(payload["ordinal"])
+            chunk = request.chunks[ordinal]
+        except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return None
+        if payload.get("type") != "chunk_completed":
+            return None
+        return WorkerEvent(
+            request.job_id,
+            sequence,
+            "chunk_completed",
+            {
+                "chunk_id": chunk.id,
+                "chunk": chunk.ordinal,
+                "duration_seconds": float(payload["duration_seconds"]),
+                "cache_hit": bool(payload.get("cache_hit", False)),
+                "synthesis_seconds": float(payload.get("synthesis_seconds", 0)),
+                "alignment_seconds": float(payload.get("alignment_seconds", 0)),
+                "timings": [],
             },
         )
 
@@ -221,6 +323,8 @@ class MlxTemplateWorkerAdapter:
     @staticmethod
     def _validate_manifest(request: NarrationRequest, manifest: dict[str, Any]):
         flat_words = tuple(word for chunk in request.chunks for word in chunk.words)
+        if len(manifest["words"]) != len(flat_words):
+            raise ValueError("MLX manifest word count does not match the speech projection")
         chunk_by_word = {
             word.id: chunk.id for chunk in request.chunks for word in chunk.words
         }

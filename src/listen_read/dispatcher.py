@@ -15,6 +15,10 @@ class PipelineDispatcher(Protocol):
 
     def submit(self, article_id: str, home: Path) -> None: ...
 
+    def cancel(self, article_id: str) -> None: ...
+
+    def wait(self, article_id: str, timeout: float) -> bool: ...
+
 
 class DeferredDispatcher:
     """The server/worker integration claims queued jobs outside this process."""
@@ -22,8 +26,18 @@ class DeferredDispatcher:
     def submit(self, article_id: str, home: Path) -> None:
         return None
 
+    def cancel(self, article_id: str) -> None:
+        return None
+
+    def wait(self, article_id: str, timeout: float) -> bool:
+        return True
+
 
 ProcessorFactory = Callable[[str], "ArticleProcessor"]
+
+
+class ProcessingCancelled(RuntimeError):
+    """Cooperative cancellation crossed the persisted pipeline boundary."""
 
 
 class SerialProcessingDispatcher:
@@ -40,6 +54,9 @@ class SerialProcessingDispatcher:
         self._runtime: Runtime | None = None
         self._queue: queue.Queue[str | None] = queue.Queue()
         self._scheduled: set[str] = set()
+        self._cancelled: set[str] = set()
+        self._done: dict[str, threading.Event] = {}
+        self._active_processors: dict[str, ArticleProcessor] = {}
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
 
@@ -57,10 +74,24 @@ class SerialProcessingDispatcher:
     def submit(self, article_id: str, home: Path) -> None:
         del home
         with self._lock:
+            self._cancelled.discard(article_id)
             if article_id in self._scheduled:
                 return
             self._scheduled.add(article_id)
+            self._done.setdefault(article_id, threading.Event()).clear()
             self._queue.put(article_id)
+
+    def cancel(self, article_id: str) -> None:
+        with self._lock:
+            self._cancelled.add(article_id)
+            processor = self._active_processors.get(article_id)
+        if processor is not None:
+            processor.cancel()
+
+    def wait(self, article_id: str, timeout: float) -> bool:
+        with self._lock:
+            event = self._done.get(article_id)
+        return True if event is None else event.wait(timeout)
 
     def resume_pending(self) -> None:
         runtime = self._require_runtime()
@@ -71,8 +102,15 @@ class SerialProcessingDispatcher:
     def close(self) -> None:
         if self._thread is None:
             return
+        with self._lock:
+            self._cancelled.update(self._scheduled)
+            active = list(self._active_processors.values())
+        for processor in active:
+            processor.cancel()
         self._queue.put(None)
-        self._thread.join(timeout=30)
+        self._thread.join(timeout=180)
+        if self._thread.is_alive():
+            raise RuntimeError("narration worker did not stop within 180 seconds")
         self._thread = None
 
     def _require_runtime(self) -> Runtime:
@@ -87,8 +125,13 @@ class SerialProcessingDispatcher:
             if article_id is None:
                 self._queue.task_done()
                 return
+            processor: ArticleProcessor | None = None
             try:
-                current = runtime.get_article(article_id)
+                try:
+                    current = runtime.get_article(article_id)
+                except KeyError:
+                    # A queued article can be purged before the worker claims it.
+                    continue
                 if current["article"]["status"] == "trashed" or current["job"]["state"] in {
                     "ready",
                     "cancelled",
@@ -96,14 +139,21 @@ class SerialProcessingDispatcher:
                     continue
                 source_url = current["article"].get("source_url")
                 processor = self._processor_factory(article_id)
+                with self._lock:
+                    self._active_processors[article_id] = processor
+                    cancelled = article_id in self._cancelled
+                if cancelled:
+                    processor.cancel()
+                    raise ProcessingCancelled(article_id)
                 processor.process(
                     article_id,
                     runtime.settings.home,
-                    lambda state, payload: runtime.transition_job(article_id, state, **payload),
+                    lambda state, payload: self._transition(
+                        runtime, article_id, state, payload
+                    ),
                     source_url=source_url,
                 )
-            except KeyError:
-                # The user may purge a queued article before the worker claims it.
+            except ProcessingCancelled:
                 pass
             except Exception as error:  # the durable failed state is the boundary
                 try:
@@ -119,6 +169,22 @@ class SerialProcessingDispatcher:
                 except KeyError:
                     pass
             finally:
+                if processor is not None:
+                    processor.cleanup()
                 with self._lock:
+                    self._active_processors.pop(article_id, None)
                     self._scheduled.discard(article_id)
+                    self._done.setdefault(article_id, threading.Event()).set()
                 self._queue.task_done()
+
+    def _transition(
+        self,
+        runtime: Runtime,
+        article_id: str,
+        state: str,
+        payload: dict,
+    ) -> None:
+        with self._lock:
+            if article_id in self._cancelled:
+                raise ProcessingCancelled(article_id)
+            runtime.transition_job(article_id, state, **payload)

@@ -15,6 +15,7 @@ export function sanitizeArticle(html: string): string {
       if (name.startsWith("on") || name === "style" || name === "srcdoc" || ((name === "href" || name === "src") && value.startsWith("javascript:"))) {
         element.removeAttribute(attribute.name);
       }
+      if (name === "src" && /^https?:/.test(value)) element.removeAttribute(attribute.name);
     }
     if (element instanceof HTMLAnchorElement) {
       element.rel = "noreferrer";
@@ -33,7 +34,7 @@ export function attachWordTimings(root: HTMLElement, words: WordTiming[]): Map<n
   const existing = root.querySelectorAll<HTMLElement>("[data-word-index]");
   if (existing.length) return new Map([...existing].map((element) => [Number(element.dataset.wordIndex), element]));
 
-  const map = new Map<number, HTMLElement>();
+  const elements: HTMLElement[] = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
@@ -43,21 +44,37 @@ export function attachWordTimings(root: HTMLElement, words: WordTiming[]): Map<n
   });
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
-  let position = 0;
   for (const node of nodes) {
     const fragment = document.createDocumentFragment();
     for (const token of node.data.split(/(\s+)/)) {
-      if (!token || /^\s+$/.test(token) || !words[position]) { fragment.append(token); continue; }
+      if (!token || /^\s+$/.test(token)) { fragment.append(token); continue; }
       const span = document.createElement("span");
       span.className = "spoken-word";
-      span.dataset.wordIndex = String(words[position]!.index);
+      span.dataset.wordIndex = String(elements.length);
       span.textContent = token;
-      map.set(words[position]!.index, span);
-      position += 1;
+      elements.push(span);
       fragment.append(span);
     }
     node.replaceWith(fragment);
-    if (position >= words.length) break;
+  }
+
+  const normalize = (value: string): string => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}'’-]+/gu, "");
+  const map = new Map<number, HTMLElement>();
+  let cursor = 0;
+  let previousIndex = 0;
+  for (const [position, word] of words.entries()) {
+    let index = position;
+    if (word.displayWordId === null) {
+      index = previousIndex;
+    } else if (word.displayWordId !== undefined) {
+      const target = normalize(word.text);
+      const match = elements.findIndex((element, candidate) => candidate >= cursor && normalize(element.textContent ?? "") === target);
+      if (match >= 0) { index = match; cursor = match + 1; previousIndex = match; }
+      else index = previousIndex;
+    }
+    word.index = index;
+    const element = elements[index];
+    if (element) { element.dataset.wordIndex = String(index); map.set(index, element); }
   }
   return map;
 }

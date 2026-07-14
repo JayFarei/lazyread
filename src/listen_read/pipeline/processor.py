@@ -13,7 +13,7 @@ from typing import Any, Callable, Mapping, Protocol
 import wave
 
 from .acquisition import AcquiredDocument, SourceAcquisitionError, acquire_markdown
-from .documents import DocumentPipeline, ScientificPolicy
+from .documents import DocumentPipeline, PreparedDocument, ScientificPolicy
 from listen_read.worker.protocol import NarrationRequest, NarrationWorker
 from listen_read.worker.validation import (
     NarrationTiming,
@@ -118,6 +118,16 @@ class ArticleProcessor:
         self._policy = policy or ScientificPolicy()
         self._source_adapter = source_adapter
 
+    def cancel(self) -> None:
+        cancel = getattr(self._worker, "cancel", None)
+        if callable(cancel):
+            cancel()
+
+    def cleanup(self) -> None:
+        cleanup = getattr(self._worker, "cleanup", None)
+        if callable(cleanup):
+            cleanup()
+
     def process(
         self,
         article_id: str,
@@ -131,10 +141,16 @@ class ArticleProcessor:
         child_usage = resource.getrusage(resource.RUSAGE_CHILDREN)
         article_dir = Path(home) / "articles" / article_id
         source_path = article_dir / "source.md"
+        document_path = article_dir / "document.json"
         transition("canonicalizing", {"phase": "canonicalizing"})
-        acquired = self._acquire(source_path, source_url)
-        prepared = self._pipeline.prepare(acquired, self._policy)
-        _atomic_json(article_dir / "document.json", prepared.to_dict())
+        if document_path.is_file():
+            prepared = PreparedDocument.from_dict(
+                json.loads(document_path.read_text(encoding="utf-8"))
+            )
+        else:
+            acquired = self._acquire(source_path, source_url)
+            prepared = self._pipeline.prepare(acquired, self._policy)
+            _atomic_json(document_path, prepared.to_dict())
         _atomic_json(article_dir / "speech.json", asdict(prepared.speech))
         transition(
             "text_ready",
@@ -223,7 +239,7 @@ class ArticleProcessor:
         )
         if completion.get("audio_path") and completion.get("timings_path"):
             result = self._publish_real_artifacts(
-                article_id, article_dir, completion
+                article_id, article_dir, completion, request
             )
         else:
             try:
@@ -241,7 +257,7 @@ class ArticleProcessor:
                     raise
                 raise ArticleProcessingError("Worker timing validation failed.") from exc
             result = self._publish_fake_artifacts(
-                article_id, article_dir, completion, timing_records
+                article_id, article_dir, completion, timing_records, request
             )
         final_self = resource.getrusage(resource.RUSAGE_SELF)
         final_child = resource.getrusage(resource.RUSAGE_CHILDREN)
@@ -339,6 +355,7 @@ class ArticleProcessor:
         article_dir: Path,
         completion: Mapping[str, Any],
         timings: list[dict[str, Any]],
+        request: NarrationRequest,
     ) -> ArticleProcessingResult:
         duration = float(completion["duration_seconds"])
         sample_rate = 8_000
@@ -367,7 +384,7 @@ class ArticleProcessor:
             "model_revision": self._model_revision,
             "aligner_revision": self._aligner_revision,
             "word_count": int(completion["word_count"]),
-            "words": timings,
+            "words": self._add_display_identity(timings, request),
         }
         _atomic_json(article_dir / "timings.json", manifest)
         return ArticleProcessingResult(
@@ -385,6 +402,7 @@ class ArticleProcessor:
         article_id: str,
         article_dir: Path,
         completion: Mapping[str, Any],
+        request: NarrationRequest,
     ) -> ArticleProcessingResult:
         source_audio = Path(str(completion["audio_path"]))
         source_timings = Path(str(completion["timings_path"]))
@@ -393,6 +411,7 @@ class ArticleProcessor:
         _atomic_copy(source_audio, article_dir / audio_filename)
         manifest = json.loads(source_timings.read_text())
         manifest["audio"] = audio_filename
+        manifest["words"] = self._add_display_identity(manifest["words"], request)
         _atomic_json(article_dir / "timings.json", manifest)
         generation = manifest.get("generationTelemetry")
         if isinstance(generation, Mapping):
@@ -406,3 +425,23 @@ class ArticleProcessor:
             self._model_revision,
             self._aligner_revision,
         )
+
+    @staticmethod
+    def _add_display_identity(
+        timings: list[dict[str, Any]], request: NarrationRequest
+    ) -> list[dict[str, Any]]:
+        words = tuple(word for chunk in request.chunks for word in chunk.words)
+        if len(timings) != len(words):
+            raise ArticleProcessingError(
+                f"Timing word count {len(timings)} does not match speech word count {len(words)}."
+            )
+        return [
+            {
+                **dict(timing),
+                "word_id": word.id,
+                "display_word_id": word.display_word_id,
+                "sentence_end": word.sentence_end,
+                "sentence_suffix": word.sentence_suffix,
+            }
+            for timing, word in zip(timings, words)
+        ]

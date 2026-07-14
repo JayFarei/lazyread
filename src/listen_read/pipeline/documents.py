@@ -45,6 +45,8 @@ class SpeechWord:
     text: str
     ordinal: int
     display_word_id: str | None = None
+    sentence_end: bool = False
+    sentence_suffix: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -275,7 +277,7 @@ class DocumentPipeline:
         policy_json = json.dumps(policy_dict, sort_keys=True, separators=(",", ":"))
         projection_id = _stable_id("speech", display.document_id, text, policy_json)
         display_cursor = 0
-        speech_words: list[SpeechWord] = []
+        matched_words: list[tuple[str, str | None]] = []
         for index, match in enumerate(WORD_PATTERN.finditer(text)):
             spoken = match.group(0)
             display_word_id: str | None = None
@@ -285,19 +287,46 @@ class DocumentPipeline:
                     display_word_id = candidate.id
                     display_cursor = candidate_index + 1
                     break
+            matched_words.append((spoken, display_word_id))
+
+        display_by_id = {word.id: word for word in display.words}
+        speech_words: list[SpeechWord] = []
+        for index, (spoken, display_word_id) in enumerate(matched_words):
+            current = display_by_id.get(display_word_id or "")
+            following = next(
+                (
+                    display_by_id[candidate_id]
+                    for _, candidate_id in matched_words[index + 1 :]
+                    if candidate_id in display_by_id
+                ),
+                None,
+            )
+            gap = (
+                display.markdown[current.end : following.start if following else None]
+                if current is not None
+                else ""
+            )
+            punctuation = re.search(r"([.!?]+[\]})\"'’”]*)", gap)
+            sentence_end = bool(punctuation or "\n" in gap or index == len(matched_words) - 1)
+            suffix = punctuation.group(1) if punctuation else ""
             speech_words.append(
                 SpeechWord(
                     id=_stable_id("sw", projection_id, str(index), spoken),
                     text=spoken,
                     ordinal=index,
                     display_word_id=display_word_id,
+                    sentence_end=sentence_end,
+                    sentence_suffix=suffix,
                 )
             )
 
         chunks: list[SpeechChunk] = []
         for ordinal, offset in enumerate(range(0, len(speech_words), self._max_chunk_words)):
             words = tuple(speech_words[offset : offset + self._max_chunk_words])
-            chunk_text = " ".join(word.text for word in words)
+            chunk_text = " ".join(
+                f"{word.text}{word.sentence_suffix or ('.' if word.sentence_end else '')}"
+                for word in words
+            )
             chunks.append(
                 SpeechChunk(
                     id=_stable_id("chunk", projection_id, str(ordinal), chunk_text),

@@ -1,4 +1,4 @@
-import type { Article, ArticleStatus, AudioManifest, Progress, WordTiming } from "./types";
+import type { Article, ArticleStatus, AudioManifest, Highlight, Progress, WordTiming } from "./types";
 
 type JsonObject = Record<string, unknown>;
 type FetchLike = typeof fetch;
@@ -24,7 +24,16 @@ function normalizeWords(value: unknown): WordTiming[] {
     const start = number(raw.start);
     const end = number(raw.end);
     if (!text || start === undefined || end === undefined) return [];
-    return [{ index: number(raw.index) ?? position, text, start, end }];
+    const hasDisplayIdentity = Object.prototype.hasOwnProperty.call(raw, "display_word_id") || Object.prototype.hasOwnProperty.call(raw, "displayWordId");
+    return [{
+      index: number(raw.index) ?? position,
+      text,
+      start,
+      end,
+      displayWordId: hasDisplayIdentity ? (string(raw.display_word_id) ?? string(raw.displayWordId) ?? null) : undefined,
+      sentenceEnd: raw.sentence_end === true || raw.sentenceEnd === true,
+      sentenceSuffix: string(raw.sentence_suffix) ?? string(raw.sentenceSuffix),
+    }];
   });
 }
 
@@ -66,6 +75,7 @@ export function normalizeArticle(value: unknown): Article {
   } : undefined;
   const id = string(raw.id) ?? "unknown";
   const warnings = raw.warnings;
+  const rawHighlights = raw.highlights;
 
   return {
     id,
@@ -98,6 +108,10 @@ export function normalizeArticle(value: unknown): Article {
     peakMemoryBytes: number(raw.peak_memory_bytes) ?? number(telemetry.peak_rss_bytes),
     artifactBytes: number(raw.artifact_bytes) ?? number(audio.bytes),
     warnings: Array.isArray(warnings) ? warnings.filter((item): item is string => typeof item === "string") : [],
+    highlights: Array.isArray(rawHighlights) ? rawHighlights.flatMap((item) => {
+      const highlight = object(item); const id = string(highlight.id); const text = string(highlight.text); const startIndex = number(highlight.startIndex); const endIndex = number(highlight.endIndex);
+      return id && text && startIndex !== undefined && endIndex !== undefined ? [{ id, text, startIndex, endIndex }] : [];
+    }) : undefined,
   };
 }
 
@@ -142,6 +156,13 @@ export class ApiClient {
     const path = action === "purge" ? `/api/articles/${encodeURIComponent(id)}` : `/api/articles/${encodeURIComponent(id)}/${action}`;
     const payload = await this.json(path, { method: action === "purge" ? "DELETE" : "POST" });
     return payload.article ? normalizeEnvelope(payload) : null;
+  }
+
+  async saveHighlights(id: string, highlights: Highlight[]): Promise<void> {
+    await this.json(`/api/articles/${encodeURIComponent(id)}/highlights`, {
+      method: "PUT",
+      body: JSON.stringify({ highlights }),
+    });
   }
 }
 

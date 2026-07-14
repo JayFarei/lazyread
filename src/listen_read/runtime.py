@@ -24,6 +24,7 @@ ACTIVE_STATES = {
     "assembling",
     "validating",
     "preloading_available",
+    "text_ready",
 }
 VALID_STATES = {
     "queued",
@@ -57,13 +58,20 @@ def _directory_bytes(path: Path) -> int:
 class Runtime:
     """Public application service for the durable listening library."""
 
-    def __init__(self, settings: Settings, dispatcher: PipelineDispatcher | None = None):
+    def __init__(
+        self,
+        settings: Settings,
+        dispatcher: PipelineDispatcher | None = None,
+        *,
+        recover_interrupted: bool = True,
+    ):
         self.settings = settings
         self.settings.ensure_directories()
         self._connection = connect(settings.home / "listen-read.sqlite")
         self._lock = threading.RLock()
         self._dispatcher = dispatcher or DeferredDispatcher()
-        self._recover_interrupted_jobs()
+        if recover_interrupted:
+            self._recover_interrupted_jobs()
 
     def close(self) -> None:
         with self._lock:
@@ -159,7 +167,56 @@ class Runtime:
         document_path = location / "document.json"
         if document_path.exists():
             result["document"] = json.loads(document_path.read_text(encoding="utf-8"))
+        result["highlights"] = self.list_highlights(article_id)
         return {"article": result, "job": result["job"]}
+
+    def list_highlights(self, article_id: str) -> list[dict[str, Any]]:
+        with self._lock:
+            exists = self._connection.execute(
+                "SELECT 1 FROM articles WHERE id=?", (article_id,)
+            ).fetchone()
+            if exists is None:
+                raise KeyError(article_id)
+            rows = self._connection.execute(
+                "SELECT id,text,start_index,end_index,created_at FROM highlights "
+                "WHERE article_id=? ORDER BY created_at,id",
+                (article_id,),
+            ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "text": row["text"],
+                "startIndex": row["start_index"],
+                "endIndex": row["end_index"],
+                "createdAt": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def replace_highlights(
+        self, article_id: str, highlights: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        self.get_article(article_id)
+        if len(highlights) > 1000:
+            raise ValueError("an article cannot contain more than 1000 highlights")
+        normalized: list[tuple[str, str, int, int, str]] = []
+        for item in highlights:
+            identifier = str(item.get("id", "")).strip()
+            text = str(item.get("text", "")).strip()
+            start = int(item.get("startIndex", -1))
+            end = int(item.get("endIndex", -1))
+            if not identifier or not text or len(text) > 20_000 or start < 0 or end < start:
+                raise ValueError("highlight id, text, and index range are invalid")
+            normalized.append((identifier, text, start, end, str(item.get("createdAt") or now())))
+        with self._lock, self._connection:
+            self._connection.execute("DELETE FROM highlights WHERE article_id=?", (article_id,))
+            self._connection.executemany(
+                "INSERT INTO highlights(id,article_id,text,start_index,end_index,created_at) "
+                "VALUES(?,?,?,?,?,?)",
+                [(identifier, article_id, text, start, end, created) for identifier, text, start, end, created in normalized],
+            )
+            self._append_event(article_id, "highlights", {"count": len(normalized)})
+        return self.list_highlights(article_id)
 
     def article_path(self, article_id: str) -> Path:
         """Return the durable artifact directory after validating article identity."""
@@ -266,6 +323,11 @@ class Runtime:
             return current
         if not trash and status != "trashed":
             return current
+        if trash and current["job"]["state"] not in {"ready", "failed", "cancelled"}:
+            self.cancel(article_id)
+            if not self._dispatcher.wait(article_id, 180):
+                raise ValueError("article cancellation is still in progress; try trash again")
+            current = self.get_article(article_id)
         source = self._article_directory(article_id, status)
         destination = self.settings.home / ("trash" if trash else "articles") / article_id
         if source.exists():
@@ -278,6 +340,8 @@ class Runtime:
                 (next_status, stamp if trash else None, stamp, article_id),
             )
             self._append_event(article_id, "article", {"status": next_status})
+        if not trash and current["job"]["state"] == "cancelled":
+            return self.retry(article_id)
         return self.get_article(article_id)
 
     def purge(self, article_id: str) -> None:
@@ -311,6 +375,7 @@ class Runtime:
         current = self.get_article(article_id)
         if current["job"]["state"] in {"ready", "failed", "cancelled"}:
             raise ValueError(f"Job cannot be cancelled from {current['job']['state']}")
+        self._dispatcher.cancel(article_id)
         return self.transition_job(article_id, "cancelled", phase="cancelled", resumable=False)
 
     def clear_cache(self, scope: str) -> dict[str, Any]:
@@ -320,6 +385,11 @@ class Runtime:
         }
         if scope not in paths:
             raise ValueError("cache scope must be chunks or models")
+        if any(
+            article["job"]["state"] not in {"ready", "failed", "cancelled"}
+            for article in self.list_articles()
+        ):
+            raise ValueError("wait for active narration jobs before clearing caches")
         path = paths[scope]
         removed = _directory_bytes(path)
         shutil.rmtree(path, ignore_errors=False)

@@ -44,6 +44,7 @@ def create_runtime(
     settings: Settings,
     *,
     worker_mode: str | None = None,
+    resume_pending: bool = True,
 ) -> tuple[Runtime, SerialProcessingDispatcher]:
     """Build the durable runtime and its serial, restart-safe processing queue."""
 
@@ -58,6 +59,7 @@ def create_runtime(
             environment = {
                 **os.environ,
                 "HF_HOME": str(settings.home / "cache" / "models"),
+                "LISTEN_READ_CHUNK_CACHE": str(settings.home / "cache" / "chunks"),
                 "LISTEN_READ_TTS_REVISION": TTS_REVISION,
                 "LISTEN_READ_ALIGNER_REVISION": ALIGNER_REVISION,
             }
@@ -85,5 +87,6 @@ def create_runtime(
     dispatcher = SerialProcessingDispatcher(processor)
     runtime = Runtime(settings, dispatcher=dispatcher)
     dispatcher.bind(runtime)
-    dispatcher.resume_pending()
+    if resume_pending:
+        dispatcher.resume_pending()
     return runtime, dispatcher

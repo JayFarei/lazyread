@@ -7,28 +7,37 @@ description: Extract clean markdown content from web pages using Defuddle CLI, r
 
 Use Defuddle CLI to extract clean readable content from web pages. Prefer over WebFetch for standard web pages — it removes navigation, ads, and clutter, reducing token usage.
 
-If not installed: `npm install -g defuddle`
+When installed with Listen Read, use its app-owned pinned binary rather than a
+global npm package:
+
+```bash
+DEFUDDLE_BIN="${LISTEN_READ_HOME:-$HOME/Library/Application Support/Listen Read}/runtime/defuddle/node_modules/.bin/defuddle"
+```
+
+If that path is absent, use `command -v defuddle` when an existing installation
+is available. Otherwise run the Listen Read `setup` disclosure flow; do not
+silently install a global npm package.
 
 ## Usage
 
 Always use `--md` for markdown output:
 
 ```bash
-defuddle parse <url> --md
+"$DEFUDDLE_BIN" parse <url> --md
 ```
 
 Save to file:
 
 ```bash
-defuddle parse <url> --md -o content.md
+"$DEFUDDLE_BIN" parse <url> --md -o content.md
 ```
 
 Extract specific metadata:
 
 ```bash
-defuddle parse <url> -p title
-defuddle parse <url> -p description
-defuddle parse <url> -p domain
+"$DEFUDDLE_BIN" parse <url> -p title
+"$DEFUDDLE_BIN" parse <url> -p description
+"$DEFUDDLE_BIN" parse <url> -p domain
 ```
 
 ## Output formats

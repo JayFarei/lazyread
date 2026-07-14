@@ -172,8 +172,8 @@ async function renderReader(id: string): Promise<void> {
   setupShell(); bindLinks();
 
   const articleBody = document.querySelector<HTMLElement>("#article-body")!;
-  const duplicateTitle = articleBody.querySelector(":scope > h1:first-child");
-  if (duplicateTitle?.textContent?.trim().toLocaleLowerCase() === article.title.trim().toLocaleLowerCase()) duplicateTitle.remove();
+  const duplicateTitle = articleBody.querySelector<HTMLElement>(":scope > h1:first-child");
+  if (duplicateTitle?.textContent?.trim().toLocaleLowerCase() === article.title.trim().toLocaleLowerCase()) duplicateTitle.hidden = true;
   const headings = [...articleBody.querySelectorAll<HTMLHeadingElement>("h2, h3")];
   const toc = document.querySelector<HTMLElement>("#toc")!;
   headings.slice(0, 12).forEach((heading, index) => { heading.id ||= `section-${index + 1}`; const link = document.createElement("a"); link.href = `#${heading.id}`; link.textContent = heading.textContent; toc.append(link); });
@@ -208,10 +208,11 @@ async function setupPlayer(article: Article, articleBody: HTMLElement): Promise<
     }
     if (!manifest) throw new Error("Narration manifest is incomplete");
   } catch (error) { playerState.textContent = "Narration unavailable"; download.textContent = error instanceof Error ? error.message : "Could not load timings"; audioDot.classList.add("error"); return; }
-  const words = manifest.words; const wordElements = attachWordTimings(articleBody, words); const wordIndexes = words.map((word) => word.index); const paragraphs = [...articleBody.querySelectorAll<HTMLElement>("p, li, blockquote, h2, h3")].flatMap((block) => { const first = block.querySelector<HTMLElement>("[data-word-index]"); return first ? [Number(first.dataset.wordIndex)] : []; });
+  const words = manifest.words; const wordElements = attachWordTimings(articleBody, words); const wordIndexes = [...new Set(words.map((word) => word.index))]; const paragraphs = [...articleBody.querySelectorAll<HTMLElement>("p, li, blockquote, h2, h3")].flatMap((block) => { const first = block.querySelector<HTMLElement>("[data-word-index]"); return first ? [Number(first.dataset.wordIndex)] : []; });
   const ranges = sentenceRanges(words); let activeIndex = words[0]?.index ?? 0; let activeElement: HTMLElement | null = null; let frame = 0; let blobUrl = ""; const undo: Array<() => void> = [];
-  let highlights: Highlight[] = JSON.parse(localStorage.getItem(`listen-read-highlights:${article.id}`) ?? "[]") as Highlight[];
-  const saveHighlights = (): void => { localStorage.setItem(`listen-read-highlights:${article.id}`, JSON.stringify(highlights)); paintHighlights(); };
+  const localHighlights = JSON.parse(localStorage.getItem(`listen-read-highlights:${article.id}`) ?? "[]") as Highlight[];
+  let highlights: Highlight[] = article.highlights?.length ? article.highlights : localHighlights;
+  const saveHighlights = (): void => { localStorage.setItem(`listen-read-highlights:${article.id}`, JSON.stringify(highlights)); paintHighlights(); void api.saveHighlights(article.id, highlights).catch(() => { required("#copy-status").textContent = "Highlights remain on this browser; library sync will retry after the server reconnects."; }); };
   const paintHighlights = (): void => {
     articleBody.querySelectorAll(".is-saved").forEach((element) => element.classList.remove("is-saved"));
     highlights.forEach((highlight) => { for (let index = highlight.startIndex; index <= highlight.endIndex; index += 1) wordElements.get(index)?.classList.add("is-saved"); });

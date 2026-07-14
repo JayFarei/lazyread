@@ -17,7 +17,11 @@ def install_skills(targets: list[Path] | None = None, *, force: bool = False) ->
     roots = targets or [Path.home() / ".codex" / "skills", Path.home() / ".claude" / "skills"]
     source = _bundled_skills()
     destinations = [root.expanduser() / name for root in roots for name in ("listen-read", "defuddle")]
-    conflicts = [destination for destination in destinations if destination.exists()]
+    conflicts = [
+        destination
+        for destination in destinations
+        if destination.exists() or destination.is_symlink()
+    ]
     if conflicts and not force:
         joined = ", ".join(str(path) for path in conflicts)
         raise FileExistsError(
@@ -29,8 +33,9 @@ def install_skills(targets: list[Path] | None = None, *, force: bool = False) ->
         root.mkdir(parents=True, exist_ok=True)
         for name in ("listen-read", "defuddle"):
             destination = root / name
-            if destination.exists():
-                shutil.rmtree(destination)
-            shutil.copytree(source / name, destination)
+            target = destination.resolve() if destination.is_symlink() else destination
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(source / name, target)
             installed.append(str(destination))
     return {"installed": installed}
