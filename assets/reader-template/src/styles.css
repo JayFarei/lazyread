@@ -362,6 +362,7 @@ h1 {
   font-size: 22px;
   line-height: 1.68;
   letter-spacing: -0.008em;
+  overflow-wrap: anywhere;
 }
 
 .article-body > p:first-child {
@@ -406,6 +407,20 @@ h1 {
   height: auto;
   margin: 0 0 24px;
   border-radius: 18px;
+}
+
+.article-body table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.article-body pre {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .speech-block {

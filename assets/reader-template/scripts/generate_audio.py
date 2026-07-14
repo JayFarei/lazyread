@@ -72,7 +72,9 @@ def normalize_word(value: str) -> str:
 
 
 def map_alignment(
-    displayed: list[dict[str, Any]], aligned: list[AlignedWord]
+    displayed: list[dict[str, Any]],
+    aligned: list[AlignedWord],
+    duration_seconds: float,
 ) -> list[dict[str, Any]]:
     """Map forced-alignment words back to stable DOM token indices."""
     output: list[dict[str, Any]] = []
@@ -101,12 +103,17 @@ def map_alignment(
             start, end = item.start, item.end
             align_pos = match_pos + 1
 
+        start = min(start, max(duration_seconds - 0.02, 0.0))
+        if output:
+            start = max(start, float(output[-1]["start"]))
+        end = min(max(end, start + 0.02), duration_seconds)
+
         output.append(
             {
                 "index": int(display["index"]),
                 "text": str(display["text"]),
                 "start": round(start, 3),
-                "end": round(max(end, start + 0.02), 3),
+                "end": round(end, 3),
             }
         )
 
@@ -197,7 +204,11 @@ def generate(force: bool) -> None:
             AlignedWord(item.text, float(item.start_time), float(item.end_time))
             for item in alignment
         ]
-        mapped = map_alignment(words_by_chunk.get(chunk_id, []), aligned)
+        mapped = map_alignment(
+            words_by_chunk.get(chunk_id, []),
+            aligned,
+            len(audio_float) / sample_rate,
+        )
         for item in mapped:
             item["start"] = round(float(item["start"]) + elapsed, 3)
             item["end"] = round(float(item["end"]) + elapsed, 3)
