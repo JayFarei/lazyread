@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import time
@@ -29,6 +30,8 @@ TMP_AUDIO = ROOT / "tmp/audio"
 
 TTS_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16"
 ALIGN_MODEL = "mlx-community/Qwen3-ForcedAligner-0.6B-8bit"
+TTS_REVISION = os.environ.get("LISTEN_READ_TTS_REVISION")
+ALIGN_REVISION = os.environ.get("LISTEN_READ_ALIGNER_REVISION")
 VOICE = "Aiden"
 STYLE = (
     "Read in a calm, warm, thoughtful and completely natural long-form narration "
@@ -131,8 +134,8 @@ def generate(force: bool) -> None:
     mx.reset_peak_memory()
     article = json.loads(ARTICLE_PATH.read_text())
     revision_started = time.perf_counter()
-    tts_model_revision = current_model_revision(TTS_MODEL)
-    align_model_revision = current_model_revision(ALIGN_MODEL)
+    tts_model_revision = TTS_REVISION or current_model_revision(TTS_MODEL)
+    align_model_revision = ALIGN_REVISION or current_model_revision(ALIGN_MODEL)
     installed_mlx_revision = mlx_audio_revision()
     revision_seconds = time.perf_counter() - revision_started
     words_by_chunk: dict[int, list[dict[str, Any]]] = {}

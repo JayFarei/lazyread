@@ -1,0 +1,4 @@
+interface:
+  display_name: "Listen Read"
+  short_description: "Turn articles into synchronized local listening"
+  default_prompt: "Use $listen-read to turn this URL or Markdown into a private synchronized listening article."
