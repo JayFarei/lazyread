@@ -1,6 +1,9 @@
 :root {
   color-scheme: light;
-  font-family: "Onest", sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --font-reading: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --font-mono: "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-ui);
   color: #171915;
   background: #f1efe8;
   font-synthesis: none;
@@ -242,7 +245,7 @@ main {
 .rail-label,
 .now-playing,
 .speed-control > span {
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -257,7 +260,7 @@ main {
 h1 {
   max-width: 850px;
   margin: 0 auto;
-  font-family: "Newsreader", serif;
+  font-family: var(--font-reading);
   font-size: clamp(58px, 8vw, 104px);
   font-weight: 500;
   letter-spacing: -0.055em;
@@ -268,7 +271,7 @@ h1 {
   max-width: 650px;
   margin: 36px auto 0;
   color: var(--muted);
-  font-family: "Newsreader", serif;
+  font-family: var(--font-reading);
   font-size: clamp(21px, 2.2vw, 28px);
   line-height: 1.35;
 }
@@ -358,10 +361,11 @@ h1 {
 
 .article-body {
   min-width: 0;
-  font-family: "Newsreader", serif;
+  font-family: var(--font-reading);
   font-size: 22px;
   line-height: 1.68;
   letter-spacing: -0.008em;
+  overflow-wrap: anywhere;
 }
 
 .article-body > p:first-child {
@@ -371,7 +375,7 @@ h1 {
 
 .article-body h2 {
   margin: 100px 0 26px;
-  font-family: "Onest", sans-serif;
+  font-family: var(--font-ui);
   font-size: clamp(31px, 4vw, 44px);
   font-weight: 500;
   letter-spacing: -0.045em;
@@ -406,6 +410,20 @@ h1 {
   height: auto;
   margin: 0 0 24px;
   border-radius: 18px;
+}
+
+.article-body table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.article-body pre {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .speech-block {
@@ -650,7 +668,7 @@ h1 {
   place-items: center;
   color: #fff;
   background: var(--accent);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 8px;
   font-weight: 700;
 }
@@ -689,7 +707,7 @@ h1 {
 .player-loading-status {
   flex: 0 0 auto;
   color: var(--accent);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.06em;
@@ -718,7 +736,7 @@ h1 {
   gap: 11px;
   margin-top: 10px;
   color: var(--muted);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9px;
 }
 
@@ -870,7 +888,7 @@ h1 {
 .shortcut-title {
   margin: 0 0 7px;
   color: var(--accent);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 7px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -902,7 +920,7 @@ h1 {
   color: var(--ink);
   background: transparent;
   box-shadow: none;
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 8px;
   font-weight: 600;
   white-space: nowrap;
@@ -1000,7 +1018,7 @@ h1 {
 
 .highlight-panel-header span {
   color: var(--accent);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1009,7 +1027,7 @@ h1 {
 
 .highlight-panel h2 {
   margin: 3px 0 0;
-  font-family: "Onest", sans-serif;
+  font-family: var(--font-ui);
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.03em;
@@ -1062,7 +1080,7 @@ h1 {
   color: var(--ink);
   background: var(--glass-control);
   box-shadow: inset 0 1px 0 var(--glass-edge);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 9px;
 }
 
@@ -1093,7 +1111,7 @@ h1 {
 
 .highlight-list p {
   margin: 0;
-  font-family: "Newsreader", serif;
+  font-family: var(--font-reading);
   font-size: 16px;
   line-height: 1.4;
 }
@@ -1141,7 +1159,7 @@ h1 {
   min-height: 15px;
   margin: 10px 2px 0;
   color: var(--accent);
-  font-family: "DM Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 8px;
   line-height: 1.4;
 }

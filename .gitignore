@@ -1,0 +1,17 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+node_modules/
+web/node_modules/
+build/
+dist/
+!web/dist/
+!web/dist/**
+.listen-read/
+tmp/
+.opentraces/
