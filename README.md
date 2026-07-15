@@ -11,23 +11,23 @@ Defuddle, Python/MLX packages, and models are installed into app-owned storage.
 
 ## Quick start
 
-The runtime is currently installed from GitHub through UVX:
+Lazyread is published on [PyPI](https://pypi.org/project/lazyread/) and runs
+directly through UVX:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyread lazyread doctor
-uvx --from git+https://github.com/JayFarei/lazyread lazyread setup
+uvx lazyread doctor
+uvx lazyread setup
 ```
 
 The product, command, Python module, repository, skill, and PyPI distribution
-are all named `lazyread`. After the first release, the public entrypoint is simply
-`uvx lazyread`.
+are all named `lazyread`.
 
 `setup` first prints the compatibility and storage disclosure. The confirmed command installs pinned dependencies under `~/Library/Application Support/Lazyread` and downloads about 5.4 GB of speech/alignment models:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyread lazyread setup --yes
-uvx --from git+https://github.com/JayFarei/lazyread lazyread install-skills
-uvx --from git+https://github.com/JayFarei/lazyread lazyread serve --detach
+uvx lazyread setup --yes
+uvx lazyread install-skills
+uvx lazyread serve --detach
 ```
 
 Restart the agent host after installing skills, then invoke:
@@ -43,7 +43,7 @@ The companion skill reviews Defuddle extraction before submitting the source. Th
 Add a single tailnet-only listener without touching other Serve routes:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyread lazyread expose --https-port 7447
+uvx lazyread expose --https-port 7447
 ```
 
 Lazyread never enables Funnel and never resets the machine's Tailscale Serve configuration.
@@ -70,6 +70,13 @@ Verified 14 July 2026 against the official upstream repositories:
 Revisions are immutable for reproducibility. A release update verifies and advances them; normal article creation does not silently upgrade the environment.
 
 ## Development
+
+To test the unreleased repository version through UVX instead of the PyPI
+release:
+
+```sh
+uvx --from git+https://github.com/JayFarei/lazyread lazyread --help
+```
 
 ```sh
 uv sync --extra test
