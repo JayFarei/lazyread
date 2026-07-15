@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lazyreader.worker import (
+from lazyread.worker import (
     NarrationTiming,
     NarrationWord,
     TimingBounds,

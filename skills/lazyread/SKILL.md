@@ -1,16 +1,16 @@
 ---
-name: lazyreader
-description: Turn a URL, local Markdown file, or pasted Markdown into a durable private listening article with natural local speech, synchronized word highlighting, complete audio preloading, telemetry, a reusable library, localhost access, and optional Tailscale access. Use when the user asks to listen to an article, paper, post, plan, notes, or Markdown; invokes Lazyreader; or wants a read-along audio page.
+name: lazyread
+description: Turn a URL, local Markdown file, or pasted Markdown into a durable private listening article with natural local speech, synchronized word highlighting, complete audio preloading, telemetry, a reusable library, localhost access, and optional Tailscale access. Use when the user asks to listen to an article, paper, post, plan, notes, or Markdown; invokes Lazyread; or wants a read-along audio page.
 ---
 
-# Lazyreader
+# Lazyread
 
-Produce an article in the user's single local Lazyreader library. Preserve the source's meaning and structure. Use the companion `defuddle` skill for URL acquisition and source-quality judgment; use the runtime for deterministic storage, narration, progress, serving, and lifecycle.
+Produce an article in the user's single local Lazyread library. Preserve the source's meaning and structure. Use the companion `defuddle` skill for URL acquisition and source-quality judgment; use the runtime for deterministic storage, narration, progress, serving, and lifecycle.
 
 Use this command prefix until the package is published to PyPI:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader
+uvx --from git+https://github.com/JayFarei/lazyread lazyread
 ```
 
 ## First use
@@ -20,7 +20,7 @@ Run `doctor`. If setup is incomplete, run `setup` without `--yes` and show the r
 Start or reuse the library:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader serve --detach
+uvx --from git+https://github.com/JayFarei/lazyread lazyread serve --detach
 ```
 
 Do not start a per-article web server.
@@ -29,13 +29,13 @@ Do not start a per-article web server.
 
 For a URL:
 
-1. Invoke the companion `defuddle` skill and save its Markdown to `/tmp/lazyreader-<slug>.md`.
+1. Invoke the companion `defuddle` skill and save its Markdown to `/tmp/lazyread-<slug>.md`.
 2. Inspect the extraction against the source. Remove navigation debris; preserve metadata, figures, tables, equations, citations, code, lists, and meaning. For scientific sources, flag missing references and add useful descriptions for meaningful figures.
 3. Submit the inspected Markdown while retaining the source URL:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader add \
-  --markdown /tmp/lazyreader-<slug>.md --source-url '<url>' --json
+uvx --from git+https://github.com/JayFarei/lazyread lazyread add \
+  --markdown /tmp/lazyread-<slug>.md --source-url '<url>' --json
 ```
 
 For pasted Markdown, save it unchanged to a temporary `.md` file and submit it with `--markdown`. For a local Markdown file, submit the existing file.
@@ -56,7 +56,7 @@ When ready, verify in a real browser:
 If Tailscale was requested, inspect existing routes and add one scoped listener:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader expose --https-port <unused-port>
+uvx --from git+https://github.com/JayFarei/lazyread lazyread expose --https-port <unused-port>
 ```
 
 Never use `tailscale serve reset` and never enable Funnel.

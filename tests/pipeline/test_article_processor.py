@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 import wave
 
-from lazyreader.pipeline import ArticleProcessor
-from lazyreader.worker import FakeNarrationWorker, WorkerEvent
+from lazyread.pipeline import ArticleProcessor
+from lazyread.worker import FakeNarrationWorker, WorkerEvent
 
 
 def test_article_processor_publishes_fake_ci_artifacts_and_runtime_transitions(
@@ -80,7 +80,7 @@ def test_article_processor_can_acquire_url_when_source_file_is_empty(
 
     class Adapter:
         def acquire(self, url: str):
-            from lazyreader.pipeline import acquire_markdown
+            from lazyread.pipeline import acquire_markdown
 
             assert url == "https://example.com/story"
             return acquire_markdown("# From URL\n\nFetched.", source_url=url)
@@ -118,7 +118,7 @@ def test_article_processor_does_not_publish_unvalidated_worker_output(
                 {"duration_seconds": 1.0, "word_count": 2},
             )
 
-    from lazyreader.pipeline import ArticleProcessingError
+    from lazyread.pipeline import ArticleProcessingError
     import pytest
 
     with pytest.raises(ArticleProcessingError, match="validation"):

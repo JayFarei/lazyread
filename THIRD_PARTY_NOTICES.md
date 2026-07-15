@@ -29,7 +29,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Defuddle itself is a separate dependency and retains its own copyright and
-license. Lazyreader invokes its CLI but does not vendor the Defuddle runtime.
+license. Lazyread invokes its CLI but does not vendor the Defuddle runtime.
 
 ## Marked
 

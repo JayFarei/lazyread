@@ -12,7 +12,7 @@ Runner = Callable[..., subprocess.CompletedProcess[str]]
 HealthCheck = Callable[[Settings], bool]
 
 
-def _lazyreader_is_healthy(settings: Settings) -> bool:
+def _lazyread_is_healthy(settings: Settings) -> bool:
     try:
         with urllib.request.urlopen(
             f"http://127.0.0.1:{settings.port}/api/health", timeout=1
@@ -32,7 +32,7 @@ def expose_tailscale(
     *,
     https_port: int,
     runner: Runner = subprocess.run,
-    health_check: HealthCheck = _lazyreader_is_healthy,
+    health_check: HealthCheck = _lazyread_is_healthy,
 ) -> dict:
     """Add one tailnet-only Serve listener without resetting unrelated routes."""
 
@@ -40,7 +40,7 @@ def expose_tailscale(
         raise ValueError("Tailscale HTTPS port must be between 1 and 65535")
     if not health_check(settings):
         raise ValueError(
-            f"Lazyreader is not healthy on local port {settings.port}; refusing to expose it"
+            f"Lazyread is not healthy on local port {settings.port}; refusing to expose it"
         )
     status = runner(
         ["tailscale", "serve", "status", "--json"],

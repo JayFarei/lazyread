@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from lazyreader.config import Settings
-from lazyreader.runtime import Runtime
+from lazyread.config import Settings
+from lazyread.runtime import Runtime
 
 
 def test_restart_marks_in_flight_jobs_interrupted_and_resumable(tmp_path: Path) -> None:
@@ -83,7 +83,7 @@ def test_purge_keeps_the_catalog_entry_when_file_deletion_fails(
             return
         raise PermissionError("article directory is not removable")
 
-    monkeypatch.setattr("lazyreader.runtime.shutil.rmtree", cannot_remove)
+    monkeypatch.setattr("lazyread.runtime.shutil.rmtree", cannot_remove)
     try:
         with pytest.raises(PermissionError, match="not removable"):
             runtime.purge(article_id)

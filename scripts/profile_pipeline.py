@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Profile Lazyreader pipeline phases and produce durable JSON/Markdown telemetry."""
+"""Profile Lazyread pipeline phases and produce durable JSON/Markdown telemetry."""
 
 from __future__ import annotations
 
@@ -324,7 +324,7 @@ def markdown_report(report: dict[str, Any]) -> str:
     audio = report.get("audio", {})
     host = report["host"]
     lines = [
-        "# Lazyreader production profile",
+        "# Lazyread production profile",
         "",
         f"- Pipeline window: **{format_seconds(overall['pipelineWindowSeconds'])}**",
         f"- Measured command time: **{format_seconds(overall['measuredPhaseSeconds'])}**",

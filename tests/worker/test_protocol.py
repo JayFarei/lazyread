@@ -3,8 +3,8 @@ from __future__ import annotations
 from io import StringIO
 import json
 
-from lazyreader.pipeline import DocumentPipeline, acquire_markdown
-from lazyreader.worker import (
+from lazyread.pipeline import DocumentPipeline, acquire_markdown
+from lazyread.worker import (
     FakeNarrationWorker,
     NarrationRequest,
     WorkerEvent,

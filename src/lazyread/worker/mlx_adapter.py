@@ -16,8 +16,8 @@ from .validation import NarrationTiming, TimingBounds, validate_timings
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
-EVENT_PREFIX = "LAZYREADER_EVENT "
-LEGACY_EVENT_PREFIX = "LISTEN_READ_EVENT "
+EVENT_PREFIX = "LAZYREAD_EVENT "
+LEGACY_EVENT_PREFIXES = ("LAZYREADER_EVENT ", "LISTEN_READ_EVENT ")
 
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
@@ -245,7 +245,7 @@ class MlxTemplateWorkerAdapter:
         prefix = next(
             (
                 candidate
-                for candidate in (EVENT_PREFIX, LEGACY_EVENT_PREFIX)
+                for candidate in (EVENT_PREFIX, *LEGACY_EVENT_PREFIXES)
                 if line.startswith(candidate)
             ),
             None,

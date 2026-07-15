@@ -4,8 +4,8 @@ import subprocess
 
 import pytest
 
-from lazyreader.pipeline import acquisition
-from lazyreader.pipeline import (
+from lazyread.pipeline import acquisition
+from lazyread.pipeline import (
     DefuddleAdapter,
     MissingDefuddleError,
     SourceAcquisitionError,
@@ -73,7 +73,7 @@ def test_missing_defuddle_has_actionable_app_owned_install_message() -> None:
 
     message = str(error.value)
     assert "defuddle parse <url> --md" in message
-    assert "lazyreader doctor" in message
+    assert "lazyread doctor" in message
     assert "global npm" in message
 
 

@@ -67,7 +67,7 @@ class Runtime:
     ):
         self.settings = settings
         self.settings.ensure_directories()
-        self._connection = connect(settings.home / "lazyreader.sqlite")
+        self._connection = connect(settings.home / "lazyread.sqlite")
         self._lock = threading.RLock()
         self._dispatcher = dispatcher or DeferredDispatcher()
         if recover_interrupted:
@@ -480,7 +480,7 @@ class Runtime:
         }
         result["total"] = {
             "bytes": sum(value["bytes"] for value in result.values())
-            + _directory_bytes(self.settings.home / "lazyreader.sqlite")
+            + _directory_bytes(self.settings.home / "lazyread.sqlite")
         }
         return result
 

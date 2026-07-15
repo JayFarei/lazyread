@@ -6,9 +6,9 @@ import subprocess
 
 import pytest
 
-from lazyreader.config import Settings
-from lazyreader.network import expose_tailscale
-from lazyreader.skills import install_skills
+from lazyread.config import Settings
+from lazyread.network import expose_tailscale
+from lazyread.skills import install_skills
 
 
 def test_skill_installer_places_both_portable_skills_in_each_host_root(
@@ -20,13 +20,13 @@ def test_skill_installer_places_both_portable_skills_in_each_host_root(
     result = install_skills([codex, claude])
 
     assert set(result["installed"]) == {
-        str(codex / "lazyreader"),
+        str(codex / "lazyread"),
         str(codex / "defuddle"),
-        str(claude / "lazyreader"),
+        str(claude / "lazyread"),
         str(claude / "defuddle"),
     }
     assert result["retired"] == []
-    assert (codex / "lazyreader" / "agents" / "openai.yaml").is_file()
+    assert (codex / "lazyread" / "agents" / "openai.yaml").is_file()
     assert (claude / "defuddle" / "SKILL.md").is_file()
 
 
@@ -34,7 +34,7 @@ def test_skill_installer_does_not_silently_overwrite_existing_skills(
     tmp_path: Path,
 ) -> None:
     root = tmp_path / "skills"
-    existing = root / "lazyreader" / "SKILL.md"
+    existing = root / "lazyread" / "SKILL.md"
     existing.parent.mkdir(parents=True)
     existing.write_text("custom")
 
@@ -61,20 +61,26 @@ def test_forced_skill_install_replaces_symlink_without_touching_its_target(
     assert (shared / "SKILL.md").read_text(encoding="utf-8") == "old"
 
 
-def test_forced_skill_install_retires_the_legacy_skill_name(tmp_path: Path) -> None:
+def test_forced_skill_install_retires_both_legacy_skill_names(tmp_path: Path) -> None:
     root = tmp_path / ".codex" / "skills"
-    legacy = root / "listen-read"
-    legacy.mkdir(parents=True)
-    (legacy / "SKILL.md").write_text("personal notes", encoding="utf-8")
+    previous = root / "lazyreader"
+    oldest = root / "listen-read"
+    previous.mkdir(parents=True)
+    oldest.mkdir(parents=True)
+    (previous / "SKILL.md").write_text("lazyreader notes", encoding="utf-8")
+    (oldest / "SKILL.md").write_text("listen read notes", encoding="utf-8")
     (root / "defuddle").mkdir()
 
     result = install_skills([root], force=True)
 
-    backup = root / ".listen-read-backup"
-    assert result["retired"] == [str(backup)]
-    assert not legacy.exists()
-    assert (backup / "SKILL.md").read_text(encoding="utf-8") == "personal notes"
-    assert (root / "lazyreader" / "SKILL.md").is_file()
+    previous_backup = root / ".lazyreader-backup"
+    oldest_backup = root / ".listen-read-backup"
+    assert result["retired"] == [str(previous_backup), str(oldest_backup)]
+    assert not previous.exists()
+    assert not oldest.exists()
+    assert (previous_backup / "SKILL.md").read_text(encoding="utf-8") == "lazyreader notes"
+    assert (oldest_backup / "SKILL.md").read_text(encoding="utf-8") == "listen read notes"
+    assert (root / "lazyread" / "SKILL.md").is_file()
 
 
 def test_skill_install_preflights_legacy_backups_across_all_roots(
@@ -83,16 +89,16 @@ def test_skill_install_preflights_legacy_backups_across_all_roots(
     first = tmp_path / "first"
     second = tmp_path / "second"
     for root in (first, second):
-        (root / "listen-read").mkdir(parents=True)
-        (root / "listen-read" / "SKILL.md").write_text("legacy", encoding="utf-8")
-    (second / ".listen-read-backup").mkdir()
+        (root / "lazyreader").mkdir(parents=True)
+        (root / "lazyreader" / "SKILL.md").write_text("legacy", encoding="utf-8")
+    (second / ".lazyreader-backup").mkdir()
 
     with pytest.raises(FileExistsError, match="backups already exist"):
         install_skills([first, second], force=True)
 
-    assert (first / "listen-read" / "SKILL.md").read_text(encoding="utf-8") == "legacy"
-    assert not (first / "lazyreader").exists()
-    assert not (first / ".listen-read-backup").exists()
+    assert (first / "lazyreader" / "SKILL.md").read_text(encoding="utf-8") == "legacy"
+    assert not (first / "lazyread").exists()
+    assert not (first / ".lazyreader-backup").exists()
 
 
 def test_tailscale_exposure_adds_only_the_requested_unused_port(tmp_path: Path) -> None:
@@ -158,7 +164,7 @@ def test_tailscale_exposure_refuses_to_replace_an_unrelated_route(
         )
 
 
-def test_tailscale_exposure_refuses_a_non_lazyreader_local_port(tmp_path: Path) -> None:
+def test_tailscale_exposure_refuses_a_non_lazyread_local_port(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="refusing to expose"):
         expose_tailscale(
             Settings(home=tmp_path / "home", port=9999),

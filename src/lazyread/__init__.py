@@ -1,4 +1,4 @@
-"""Lazyreader local runtime."""
+"""Lazyread local runtime."""
 
 from .config import Settings
 from .runtime import Runtime

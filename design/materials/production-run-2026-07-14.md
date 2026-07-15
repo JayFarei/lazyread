@@ -1,6 +1,6 @@
 # Long-paper production run — 14 July 2026
 
-Purpose: ground the Lazyreader system plan in one complete scientific-paper run rather than assumptions from short articles.
+Purpose: ground the Lazyread system plan in one complete scientific-paper run rather than assumptions from short articles.
 
 ## Workload
 

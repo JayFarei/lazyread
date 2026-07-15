@@ -9,9 +9,9 @@ import time
 
 import pytest
 
-from lazyreader.pipeline import DocumentPipeline, acquire_markdown
-from lazyreader.worker import MlxTemplateWorkerAdapter, NarrationRequest
-from lazyreader.worker.mlx_adapter import EVENT_PREFIX, LEGACY_EVENT_PREFIX
+from lazyread.pipeline import DocumentPipeline, acquire_markdown
+from lazyread.worker import MlxTemplateWorkerAdapter, NarrationRequest
+from lazyread.worker.mlx_adapter import EVENT_PREFIX, LEGACY_EVENT_PREFIXES
 
 
 def make_request() -> NarrationRequest:
@@ -141,11 +141,12 @@ def test_mlx_adapter_translates_streamed_chunk_progress_to_stable_identity() -> 
     assert event.payload["chunk_id"] == request.chunks[1].id
     assert event.payload["cache_hit"] is True
 
-    legacy_event = MlxTemplateWorkerAdapter._progress_event(
-        request, line.replace(EVENT_PREFIX, LEGACY_EVENT_PREFIX, 1), 8
-    )
-    assert legacy_event is not None
-    assert legacy_event.sequence == 8
+    for sequence, legacy_prefix in enumerate(LEGACY_EVENT_PREFIXES, start=8):
+        legacy_event = MlxTemplateWorkerAdapter._progress_event(
+            request, line.replace(EVENT_PREFIX, legacy_prefix, 1), sequence
+        )
+        assert legacy_event is not None
+        assert legacy_event.sequence == sequence
 
 
 def test_mlx_adapter_rejects_surplus_manifest_words(tmp_path: Path) -> None:

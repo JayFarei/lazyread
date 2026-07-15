@@ -29,18 +29,23 @@ ARTICLE_PATH = ROOT / "src/generated/article.json"
 PUBLIC_AUDIO = ROOT / "public/audio"
 TMP_AUDIO = ROOT / "tmp/audio"
 CHUNK_CACHE = Path(
-    os.environ.get("LAZYREADER_CHUNK_CACHE")
+    os.environ.get("LAZYREAD_CHUNK_CACHE")
+    or os.environ.get("LAZYREADER_CHUNK_CACHE")
     or os.environ.get("LISTEN_READ_CHUNK_CACHE")
     or TMP_AUDIO
 )
 
 TTS_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16"
 ALIGN_MODEL = "mlx-community/Qwen3-ForcedAligner-0.6B-8bit"
-TTS_REVISION = os.environ.get("LAZYREADER_TTS_REVISION") or os.environ.get(
-    "LISTEN_READ_TTS_REVISION"
+TTS_REVISION = (
+    os.environ.get("LAZYREAD_TTS_REVISION")
+    or os.environ.get("LAZYREADER_TTS_REVISION")
+    or os.environ.get("LISTEN_READ_TTS_REVISION")
 )
-ALIGN_REVISION = os.environ.get("LAZYREADER_ALIGNER_REVISION") or os.environ.get(
-    "LISTEN_READ_ALIGNER_REVISION"
+ALIGN_REVISION = (
+    os.environ.get("LAZYREAD_ALIGNER_REVISION")
+    or os.environ.get("LAZYREADER_ALIGNER_REVISION")
+    or os.environ.get("LISTEN_READ_ALIGNER_REVISION")
 )
 VOICE = "Aiden"
 STYLE = (
@@ -285,7 +290,7 @@ def generate(force: bool) -> None:
             }
         )
         print(
-            "LAZYREADER_EVENT "
+            "LAZYREAD_EVENT "
             + json.dumps(
                 {
                     "type": "chunk_completed",

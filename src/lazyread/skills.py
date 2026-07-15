@@ -4,13 +4,17 @@ from pathlib import Path
 import shutil
 
 
+BUNDLED_SKILL_NAMES = ("lazyread", "defuddle")
+LEGACY_SKILL_NAMES = ("lazyreader", "listen-read")
+
+
 def _bundled_skills() -> Path:
     packaged = Path(__file__).parent / "skills"
     checkout = Path(__file__).parents[2] / "skills"
     for candidate in (packaged, checkout):
-        if (candidate / "lazyreader" / "SKILL.md").is_file():
+        if (candidate / "lazyread" / "SKILL.md").is_file():
             return candidate
-    raise FileNotFoundError("bundled Lazyreader skills are missing")
+    raise FileNotFoundError("bundled Lazyread skills are missing")
 
 
 def install_skills(targets: list[Path] | None = None, *, force: bool = False) -> dict:
@@ -25,9 +29,7 @@ def install_skills(targets: list[Path] | None = None, *, force: bool = False) ->
         )
     ]
     source = _bundled_skills()
-    destinations = [
-        root / name for root in roots for name in ("lazyreader", "defuddle")
-    ]
+    destinations = [root / name for root in roots for name in BUNDLED_SKILL_NAMES]
     conflicts = [
         destination
         for destination in destinations
@@ -39,7 +41,9 @@ def install_skills(targets: list[Path] | None = None, *, force: bool = False) ->
             f"skill folders already exist: {joined}; inspect them, then pass --force to replace them"
         )
     legacy_moves = [
-        (root / "listen-read", root / ".listen-read-backup") for root in roots
+        (root / name, root / f".{name}-backup")
+        for root in roots
+        for name in LEGACY_SKILL_NAMES
     ]
     backup_conflicts = [
         backup
@@ -56,12 +60,13 @@ def install_skills(targets: list[Path] | None = None, *, force: bool = False) ->
     retired: list[str] = []
     for root in roots:
         root.mkdir(parents=True, exist_ok=True)
-        legacy = root / "listen-read"
-        if legacy.exists() or legacy.is_symlink():
-            backup = root / ".listen-read-backup"
-            legacy.rename(backup)
-            retired.append(str(backup))
-        for name in ("lazyreader", "defuddle"):
+        for name in LEGACY_SKILL_NAMES:
+            legacy = root / name
+            if legacy.exists() or legacy.is_symlink():
+                backup = root / f".{name}-backup"
+                legacy.rename(backup)
+                retired.append(str(backup))
+        for name in BUNDLED_SKILL_NAMES:
             destination = root / name
             if destination.is_symlink():
                 destination.unlink()

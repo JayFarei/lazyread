@@ -66,7 +66,7 @@ class SerialProcessingDispatcher:
         self._runtime = runtime
         self._thread = threading.Thread(
             target=self._run,
-            name="lazyreader-processing",
+            name="lazyread-processing",
             daemon=True,
         )
         self._thread.start()

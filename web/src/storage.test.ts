@@ -11,16 +11,22 @@ function memoryStorage(entries: Record<string, string> = {}) {
 }
 
 describe("migratedStorageValue", () => {
-  it("copies a legacy preference into the Lazyreader key", () => {
+  it("prefers the Lazyreader preference over the original Listen Read key", () => {
+    const storage = memoryStorage({ "lazyreader-theme": "dark", "listen-read-theme": "light" });
+
+    expect(migratedStorageValue(storage, "lazyread-theme", "lazyreader-theme", "listen-read-theme")).toBe("dark");
+    expect(storage.values.get("lazyread-theme")).toBe("dark");
+  });
+
+  it("falls back to the original Listen Read key", () => {
     const storage = memoryStorage({ "listen-read-theme": "dark" });
 
-    expect(migratedStorageValue(storage, "lazyreader-theme", "listen-read-theme")).toBe("dark");
-    expect(storage.values.get("lazyreader-theme")).toBe("dark");
+    expect(migratedStorageValue(storage, "lazyread-theme", "lazyreader-theme", "listen-read-theme")).toBe("dark");
   });
 
   it("keeps a current preference when both names exist", () => {
-    const storage = memoryStorage({ "lazyreader-theme": "light", "listen-read-theme": "dark" });
+    const storage = memoryStorage({ "lazyread-theme": "light", "listen-read-theme": "dark" });
 
-    expect(migratedStorageValue(storage, "lazyreader-theme", "listen-read-theme")).toBe("light");
+    expect(migratedStorageValue(storage, "lazyread-theme", "lazyreader-theme", "listen-read-theme")).toBe("light");
   });
 });

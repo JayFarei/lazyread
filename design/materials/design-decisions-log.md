@@ -1,4 +1,4 @@
-# Lazyreader design decisions
+# Lazyread design decisions
 
 Purpose: record the decisions that future implementation work should treat as defaults unless new evidence explicitly overturns them.
 
@@ -23,7 +23,7 @@ Purpose: record the decisions that future implementation work should treat as de
 
 The skill owns source-specific judgment: extraction inspection, cleanup, figure understanding, speech policy, current-stack verification, browser QA, and handoff. The runtime owns deterministic mechanics: installation, models, jobs, storage, serving, telemetry, and lifecycle.
 
-Rejected: reducing the skill to `lazyreader add <url>`. The scientific-paper run showed that the quality gap lives exactly in the work a thin wrapper would remove.
+Rejected: reducing the skill to `lazyread add <url>`. The scientific-paper run showed that the quality gap lives exactly in the work a thin wrapper would remove.
 
 ## D-02 — UVX distribution
 
@@ -87,7 +87,7 @@ Rationale: uninterrupted, seekable, offline-capable playback is a core experienc
 
 ## D-12 — Defuddle is a declared companion dependency
 
-The canonical upstream Defuddle skill uses the local `defuddle` Node CLI and recommends installing it globally with npm when missing. Lazyreader should ship/install the companion skill and invoke a pinned CLI adapter rather than reimplement extraction inside the Python runtime.
+The canonical upstream Defuddle skill uses the local `defuddle` Node CLI and recommends installing it globally with npm when missing. Lazyread should ship/install the companion skill and invoke a pinned CLI adapter rather than reimplement extraction inside the Python runtime.
 
 The remaining decision is operational: install Defuddle into app-owned storage, adopt a compatible existing global install, or bundle its Node runtime. The app-owned pinned installation is the current recommendation because it avoids silent global mutation and enables deterministic upgrades and cleanup.
 
@@ -95,7 +95,7 @@ The locally installed skill used for the long-paper run calls the hosted `defudd
 
 ## Sources
 
-- [System plan](../lazyreader-system-plan.md)
+- [System plan](../lazyread-system-plan.md)
 - [Production run](production-run-2026-07-14.md)
 - [Current skill](../../SKILL.md)
 - [Canonical Defuddle skill](https://github.com/kepano/obsidian-skills/blob/main/skills/defuddle/SKILL.md)

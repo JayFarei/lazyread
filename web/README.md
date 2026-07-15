@@ -1,4 +1,4 @@
-# Lazyreader web application
+# Lazyread web application
 
 The Vite build is emitted to `web/dist/`. The Python wheel must package that
 directory unchanged and serve `index.html` as the fallback for `/library`,
