@@ -37,6 +37,13 @@ export function getShortcut(event: KeyboardEvent): Shortcut | null {
   return null;
 }
 
+export function shouldHandleShortcut(event: KeyboardEvent, shortcut: Shortcut): boolean {
+  const target = event.target;
+  if (!(target instanceof Element)) return true;
+  if (target.matches("input, textarea, select") || target.closest('[contenteditable]:not([contenteditable="false"])')) return false;
+  return shortcut.type !== "toggle" || !target.closest("button, a");
+}
+
 export function sentenceRanges(words: WordTiming[]): Highlight[] {
   const result: Highlight[] = [];
   let start = 0;

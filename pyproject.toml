@@ -49,6 +49,7 @@ include = [
   "/skills",
   "/packaging",
   "/README.md",
+  "/RELEASING.md",
   "/LICENSE",
   "/THIRD_PARTY_NOTICES.md",
 ]

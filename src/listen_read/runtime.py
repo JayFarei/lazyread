@@ -269,6 +269,7 @@ class Runtime:
         completed_chunks: int | None = None,
         total_chunks: int | None = None,
         message: str | None = None,
+        title: str | None = None,
         **_artifact_metadata: Any,
     ) -> dict[str, Any]:
         if state not in VALID_STATES:
@@ -295,6 +296,15 @@ class Runtime:
             )
             if cursor.rowcount == 0:
                 raise KeyError(article_id)
+            resolved_title = title.strip() if title else ""
+            title_changed = False
+            if resolved_title:
+                title_cursor = self._connection.execute(
+                    "UPDATE articles SET title=? "
+                    "WHERE id=? AND source_url IS NOT NULL AND title=source_url",
+                    (resolved_title, article_id),
+                )
+                title_changed = title_cursor.rowcount > 0
             article_status = "ready" if state == "ready" else "failed" if state == "failed" else "processing"
             self._connection.execute(
                 "UPDATE articles SET status=?,updated_at=? WHERE id=? AND status!='trashed'",
@@ -307,6 +317,8 @@ class Runtime:
                 event["total"] = total
             if error is not None:
                 event["error"] = error
+            if title_changed:
+                event["title"] = resolved_title
             self._append_event(article_id, "job", event)
         return self.get_article(article_id)
 
@@ -348,7 +360,10 @@ class Runtime:
         article = self.get_article(article_id)
         if article["article"]["status"] != "trashed":
             raise ValueError("Article must be trashed before it can be purged")
-        shutil.rmtree(self.settings.home / "trash" / article_id, ignore_errors=True)
+        try:
+            shutil.rmtree(self.settings.home / "trash" / article_id)
+        except FileNotFoundError:
+            pass
         with self._lock, self._connection:
             self._connection.execute("DELETE FROM articles WHERE id=?", (article_id,))
 
@@ -412,8 +427,9 @@ class Runtime:
         return result
 
     def snapshot(self, article_id: str) -> dict[str, Any]:
-        data = self.get_article(article_id)
-        data["cursor"] = self.latest_sequence(article_id)
+        with self._lock:
+            data = self.get_article(article_id)
+            data["cursor"] = self.latest_sequence(article_id)
         return data
 
     def events_after(self, article_id: str, sequence: int) -> list[dict[str, Any]]:

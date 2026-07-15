@@ -81,6 +81,78 @@ def test_sse_starts_with_persisted_snapshot_and_resume_cursor(tmp_path: Path) ->
         thread.join(timeout=3)
 
 
+def test_title_resolution_is_emitted_only_when_it_replaces_a_url_placeholder(
+    tmp_path: Path,
+) -> None:
+    runtime = Runtime(Settings(home=tmp_path / "home"))
+    try:
+        source_url = "https://example.test/article"
+        acquired_id = runtime.submit_source(source_url)["article"]["id"]
+        explicit_id = runtime.submit_source(source_url, title="Keep this title")["article"]["id"]
+
+        runtime.transition_job(acquired_id, "text_ready", title="Acquired title")
+        runtime.transition_job(explicit_id, "text_ready", title="Fetched title")
+
+        acquired_events = runtime.events_after(acquired_id, 0)
+        explicit_events = runtime.events_after(explicit_id, 0)
+        assert acquired_events[-1]["data"]["title"] == "Acquired title"
+        assert "title" not in explicit_events[-1]["data"]
+        assert runtime.get_article(explicit_id)["article"]["title"] == "Keep this title"
+    finally:
+        runtime.close()
+
+
+def test_snapshot_cannot_pair_stale_state_with_a_newer_event_cursor(
+    tmp_path: Path, monkeypatch
+) -> None:
+    runtime = Runtime(Settings(home=tmp_path / "home"))
+    article_id = runtime.submit_markdown("# Snapshot race\n\nA body.")["article"]["id"]
+    snapshot_started = threading.Event()
+    release_snapshot = threading.Event()
+    transition_finished = threading.Event()
+    snapshots: list[dict] = []
+    original_get_article = runtime.get_article
+
+    def paused_get_article(requested_id: str) -> dict:
+        data = original_get_article(requested_id)
+        if not snapshot_started.is_set():
+            snapshot_started.set()
+            release_snapshot.wait(timeout=3)
+        return data
+
+    monkeypatch.setattr(runtime, "get_article", paused_get_article)
+    snapshot_thread = threading.Thread(
+        target=lambda: snapshots.append(runtime.snapshot(article_id))
+    )
+
+    def transition() -> None:
+        runtime.transition_job(article_id, "text_ready", phase="text_ready")
+        transition_finished.set()
+
+    transition_thread = threading.Thread(target=transition)
+    try:
+        snapshot_thread.start()
+        assert snapshot_started.wait(timeout=3)
+        transition_thread.start()
+
+        assert not transition_finished.wait(timeout=0.1)
+        release_snapshot.set()
+        snapshot_thread.join(timeout=3)
+        transition_thread.join(timeout=3)
+
+        snapshot = snapshots[0]
+        assert snapshot["job"]["state"] == "queued"
+        assert any(
+            event["data"].get("state") == "text_ready"
+            for event in runtime.events_after(article_id, snapshot["cursor"])
+        )
+    finally:
+        release_snapshot.set()
+        snapshot_thread.join(timeout=3)
+        transition_thread.join(timeout=3)
+        runtime.close()
+
+
 def test_read_route_uses_embedded_shell_hook(tmp_path: Path) -> None:
     runtime = Runtime(Settings(home=tmp_path / "home"))
     article = runtime.submit_markdown("# Route\n\nA body.")["article"]
@@ -95,6 +167,9 @@ def test_read_route_uses_embedded_shell_hook(tmp_path: Path) -> None:
         assert response.status == 200
         assert "Listen Read" in html
         assert f'data-article-id="{article["id"]}"' in html
+        assert "fonts.googleapis.com" not in html
+        assert "fonts.gstatic.com" not in html
+        assert "font-src 'self'" in response.headers["Content-Security-Policy"]
     finally:
         server.shutdown()
         server.server_close()

@@ -81,6 +81,9 @@ def create_runtime(
             worker=worker,
             model_revision=TTS_REVISION if mode == "mlx" else "fake-tts-v1",
             aligner_revision=ALIGNER_REVISION if mode == "mlx" else "fake-aligner-v1",
+            mlx_audio_revision=(
+                MLX_AUDIO_REVISION if mode == "mlx" else "fake-mlx-audio-v1"
+            ),
             source_adapter=source_adapter,
         )
 

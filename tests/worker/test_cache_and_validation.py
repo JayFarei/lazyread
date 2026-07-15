@@ -16,6 +16,7 @@ def test_chunk_cache_key_covers_every_synthesis_input() -> None:
         "voice": "Aiden",
         "settings": {"temperature": 0.75, "style": "warm"},
         "model_revision": "model@abc",
+        "mlx_audio_revision": "mlx-audio@abc",
     }
     key = chunk_cache_key(**base)
 
@@ -24,12 +25,14 @@ def test_chunk_cache_key_covers_every_synthesis_input() -> None:
         voice=base["voice"],
         settings={"style": "warm", "temperature": 0.75},
         model_revision=base["model_revision"],
+        mlx_audio_revision=base["mlx_audio_revision"],
     )
     for changed in (
         {**base, "text": "A different passage."},
         {**base, "voice": "Serena"},
         {**base, "settings": {"temperature": 0.7, "style": "warm"}},
         {**base, "model_revision": "model@def"},
+        {**base, "mlx_audio_revision": "mlx-audio@def"},
     ):
         assert chunk_cache_key(**changed) != key
 

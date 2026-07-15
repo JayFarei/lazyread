@@ -19,9 +19,13 @@ jobs:
       - run: uv sync --extra test --locked
       - run: uv run pytest
       - run: uvx ruff check src tests
-      - run: uv build
+      - run: uv build --no-sources
       - name: Smoke-test wheel contents
         run: unzip -l dist/*.whl | grep -E 'listen_read/(web/index.html|skills/listen-read/SKILL.md|worker_template/scripts/generate_audio.py)'
+      - name: Smoke-test wheel installation
+        run: uv run --isolated --no-project --with dist/*.whl tests/package_smoke.py
+      - name: Smoke-test source distribution installation
+        run: uv run --isolated --no-project --with dist/*.tar.gz tests/package_smoke.py
 
   web:
     runs-on: ubuntu-latest

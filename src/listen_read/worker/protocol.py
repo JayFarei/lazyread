@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from listen_read.pipeline import PreparedDocument
 
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +38,7 @@ class NarrationRequest:
     settings: Mapping[str, Any]
     model_revision: str
     aligner_revision: str
+    mlx_audio_revision: str
     protocol_version: int = PROTOCOL_VERSION
 
     @classmethod
@@ -50,6 +51,7 @@ class NarrationRequest:
         settings: Mapping[str, Any],
         model_revision: str,
         aligner_revision: str,
+        mlx_audio_revision: str,
     ) -> NarrationRequest:
         return cls(
             job_id=job_id,
@@ -77,6 +79,7 @@ class NarrationRequest:
             settings=dict(settings),
             model_revision=model_revision,
             aligner_revision=aligner_revision,
+            mlx_audio_revision=mlx_audio_revision,
         )
 
     def to_json(self) -> str:
@@ -120,6 +123,7 @@ class NarrationRequest:
             settings=dict(raw.get("settings", {})),
             model_revision=str(raw["model_revision"]),
             aligner_revision=str(raw["aligner_revision"]),
+            mlx_audio_revision=str(raw["mlx_audio_revision"]),
             protocol_version=version,
         )
 
@@ -178,6 +182,7 @@ class FakeNarrationWorker:
             chunk_total=len(request.chunks),
             model_revision=request.model_revision,
             aligner_revision=request.aligner_revision,
+            mlx_audio_revision=request.mlx_audio_revision,
         )
         elapsed = 0.0
         word_count = 0

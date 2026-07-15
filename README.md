@@ -87,6 +87,7 @@ LISTEN_READ_HOME=/tmp/listen-read-dev LISTEN_READ_WORKER=fake \
 ```
 
 The architecture and measured 10,068-word scientific-paper production run are documented in [`design/`](design/INDEX.md).
+Maintainer release steps are documented in [`RELEASING.md`](RELEASING.md).
 
 ## License
 

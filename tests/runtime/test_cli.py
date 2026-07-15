@@ -18,6 +18,18 @@ def invoke(home: Path, *args: str) -> tuple[int, str]:
     return code, "".join(output)
 
 
+def test_json_flag_is_accepted_before_or_after_the_subcommand(tmp_path: Path) -> None:
+    for args in (
+        ["--home", str(tmp_path / "before"), "--json", "doctor"],
+        ["--home", str(tmp_path / "after"), "doctor", "--json"],
+    ):
+        output: list[str] = []
+        code = main(args, stdout=output.append)
+
+        assert code in {0, 2}
+        assert json.loads("".join(output))["downloads_started"] is False
+
+
 def test_user_can_add_list_show_and_manage_an_article(tmp_path: Path) -> None:
     markdown = tmp_path / "source.md"
     markdown.write_text("# A useful paper\n\nHello from the article.\n", encoding="utf-8")

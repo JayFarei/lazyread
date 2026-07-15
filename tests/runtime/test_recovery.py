@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from listen_read.config import Settings
 from listen_read.runtime import Runtime
 
@@ -53,3 +55,28 @@ def test_restart_recovers_text_ready_jobs_instead_of_stranding_them(tmp_path: Pa
         assert restarted.get_article(article_id)["job"]["state"] == "interrupted"
     finally:
         restarted.close()
+
+
+def test_purge_keeps_the_catalog_entry_when_file_deletion_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    runtime = Runtime(Settings(home=tmp_path / "home"))
+    article_id = runtime.submit_markdown("# Keep catalog\n\nDeletion will fail.")["article"]["id"]
+    runtime.trash(article_id)
+
+    def cannot_remove(
+        *_args: object, ignore_errors: bool = False, **_kwargs: object
+    ) -> None:
+        if ignore_errors:
+            return
+        raise PermissionError("article directory is not removable")
+
+    monkeypatch.setattr("listen_read.runtime.shutil.rmtree", cannot_remove)
+    try:
+        with pytest.raises(PermissionError, match="not removable"):
+            runtime.purge(article_id)
+
+        assert runtime.get_article(article_id)["article"]["status"] == "trashed"
+        assert (tmp_path / "home" / "trash" / article_id).is_dir()
+    finally:
+        runtime.close()

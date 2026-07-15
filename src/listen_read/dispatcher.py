@@ -90,6 +90,8 @@ class SerialProcessingDispatcher:
 
     def wait(self, article_id: str, timeout: float) -> bool:
         with self._lock:
+            if article_id not in self._active_processors:
+                return True
             event = self._done.get(article_id)
         return True if event is None else event.wait(timeout)
 

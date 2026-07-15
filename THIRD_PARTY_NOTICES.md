@@ -2,12 +2,31 @@
 
 ## Defuddle agent skill
 
-`skills/defuddle/SKILL.md` is reproduced from
+`skills/defuddle/SKILL.md` is adapted from
 [`kepano/obsidian-skills`](https://github.com/kepano/obsidian-skills) at commit
 [`1e1df342c231705579ece0c99527012dfe4dfa5b`](https://github.com/kepano/obsidian-skills/commit/1e1df342c231705579ece0c99527012dfe4dfa5b).
 
-The source repository is distributed under the MIT License. Copyright remains
-with its respective contributors.
+MIT License
+
+Copyright (c) 2026 Steph Ango (@kepano)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 Defuddle itself is a separate dependency and retains its own copyright and
 license. Listen Read invokes its CLI but does not vendor the Defuddle runtime.

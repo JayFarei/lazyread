@@ -39,21 +39,21 @@ def test_skill_installer_does_not_silently_overwrite_existing_skills(tmp_path: P
     assert existing.read_text() == "custom"
 
 
-def test_skill_installer_preserves_a_shared_skill_symlink(tmp_path: Path) -> None:
+def test_forced_skill_install_replaces_symlink_without_touching_its_target(
+    tmp_path: Path,
+) -> None:
     codex = tmp_path / ".codex" / "skills"
-    claude = tmp_path / ".claude" / "skills"
-    shared = claude / "defuddle"
+    shared = tmp_path / "shared" / "defuddle"
     shared.mkdir(parents=True)
     (shared / "SKILL.md").write_text("old", encoding="utf-8")
     codex.mkdir(parents=True)
     (codex / "defuddle").symlink_to(shared)
 
-    install_skills([codex, claude], force=True)
+    install_skills([codex], force=True)
 
-    assert (codex / "defuddle").is_symlink()
-    assert (codex / "defuddle" / "SKILL.md").read_text(encoding="utf-8") == (
-        claude / "defuddle" / "SKILL.md"
-    ).read_text(encoding="utf-8")
+    assert not (codex / "defuddle").is_symlink()
+    assert (codex / "defuddle" / "SKILL.md").read_text(encoding="utf-8") != "old"
+    assert (shared / "SKILL.md").read_text(encoding="utf-8") == "old"
 
 
 def test_tailscale_exposure_adds_only_the_requested_unused_port(tmp_path: Path) -> None:

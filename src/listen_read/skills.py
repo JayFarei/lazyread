@@ -33,9 +33,10 @@ def install_skills(targets: list[Path] | None = None, *, force: bool = False) ->
         root.mkdir(parents=True, exist_ok=True)
         for name in ("listen-read", "defuddle"):
             destination = root / name
-            target = destination.resolve() if destination.is_symlink() else destination
-            if target.exists():
-                shutil.rmtree(target)
-            shutil.copytree(source / name, target)
+            if destination.is_symlink():
+                destination.unlink()
+            elif destination.exists():
+                shutil.rmtree(destination)
+            shutil.copytree(source / name, destination)
             installed.append(str(destination))
     return {"installed": installed}

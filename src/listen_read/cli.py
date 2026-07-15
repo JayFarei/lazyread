@@ -152,6 +152,16 @@ def _parser() -> argparse.ArgumentParser:
     clear = commands.add_parser("clear-cache", help="remove regenerable cached artifacts")
     clear.add_argument("scope", choices=("chunks", "models"))
     clear.add_argument("--yes", action="store_true", help="confirm cache removal")
+    # Agent-facing examples read more naturally with output selection after the
+    # command (for example, `show <id> --json`). Keep accepting the traditional
+    # global position as well.
+    for command in commands.choices.values():
+        command.add_argument(
+            "--json",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help=argparse.SUPPRESS,
+        )
     return parser
 
 

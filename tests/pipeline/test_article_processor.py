@@ -22,6 +22,7 @@ def test_article_processor_publishes_fake_ci_artifacts_and_runtime_transitions(
         settings={"style": "warm"},
         model_revision="fake-tts@1",
         aligner_revision="fake-aligner@1",
+        mlx_audio_revision="fake-mlx-audio@1",
         max_chunk_words=2,
     ).process(
         "article-1",
@@ -58,7 +59,14 @@ def test_article_processor_publishes_fake_ci_artifacts_and_runtime_transitions(
         assert audio.getnchannels() == 1
         assert audio.getframerate() == 8_000
         assert audio.getnframes() == 4_000
-    allowed_runtime_fields = {"phase", "completed", "total", "error", "resumable"}
+    allowed_runtime_fields = {
+        "phase",
+        "completed",
+        "total",
+        "error",
+        "resumable",
+        "title",
+    }
     assert all(set(payload) <= allowed_runtime_fields for _, payload in transitions)
     assert transitions[-1][1] == {"phase": "ready", "completed": 3, "total": 3}
 
@@ -81,6 +89,7 @@ def test_article_processor_can_acquire_url_when_source_file_is_empty(
         worker=FakeNarrationWorker(),
         model_revision="fake-tts@1",
         aligner_revision="fake-aligner@1",
+        mlx_audio_revision="fake-mlx-audio@1",
         source_adapter=Adapter(),
     ).process(
         "article-url",
@@ -117,6 +126,7 @@ def test_article_processor_does_not_publish_unvalidated_worker_output(
             worker=UnsafeWorker(),
             model_revision="fake-tts@1",
             aligner_revision="fake-aligner@1",
+            mlx_audio_revision="fake-mlx-audio@1",
         ).process("unsafe", tmp_path, lambda _state, _payload: None)
 
     assert not (article / "audio.wav").exists()

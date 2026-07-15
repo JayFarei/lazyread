@@ -105,6 +105,7 @@ class ArticleProcessor:
         settings: Mapping[str, Any] | None = None,
         model_revision: str,
         aligner_revision: str,
+        mlx_audio_revision: str,
         max_chunk_words: int = 120,
         policy: ScientificPolicy | None = None,
         source_adapter: SourceAdapter | None = None,
@@ -114,6 +115,7 @@ class ArticleProcessor:
         self._settings = dict(settings or {})
         self._model_revision = model_revision
         self._aligner_revision = aligner_revision
+        self._mlx_audio_revision = mlx_audio_revision
         self._pipeline = DocumentPipeline(max_chunk_words=max_chunk_words)
         self._policy = policy or ScientificPolicy()
         self._source_adapter = source_adapter
@@ -158,6 +160,7 @@ class ArticleProcessor:
                 "phase": "text_ready",
                 "completed": 0,
                 "total": len(prepared.speech.chunks),
+                "title": prepared.display.title,
             },
         )
 
@@ -168,6 +171,7 @@ class ArticleProcessor:
             settings=self._settings,
             model_revision=self._model_revision,
             aligner_revision=self._aligner_revision,
+            mlx_audio_revision=self._mlx_audio_revision,
         )
         timing_records: list[dict[str, Any]] = []
         completion: Mapping[str, Any] | None = None
@@ -290,6 +294,7 @@ class ArticleProcessor:
                 "worker": type(self._worker).__name__,
                 "model_revision": self._model_revision,
                 "aligner_revision": self._aligner_revision,
+                "mlx_audio_revision": self._mlx_audio_revision,
                 "audio_seconds": result.duration_seconds,
                 "word_count": result.word_count,
             },
@@ -383,6 +388,7 @@ class ArticleProcessor:
             "voice": self._voice,
             "model_revision": self._model_revision,
             "aligner_revision": self._aligner_revision,
+            "mlx_audio_revision": self._mlx_audio_revision,
             "word_count": int(completion["word_count"]),
             "words": self._add_display_identity(timings, request),
         }

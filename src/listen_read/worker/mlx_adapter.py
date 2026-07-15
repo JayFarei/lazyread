@@ -87,6 +87,7 @@ class MlxTemplateWorkerAdapter:
                 "chunk_total": len(request.chunks),
                 "model_revision": request.model_revision,
                 "aligner_revision": request.aligner_revision,
+                "mlx_audio_revision": request.mlx_audio_revision,
             },
         )
         self._write_legacy_article(request)
@@ -311,11 +312,13 @@ class MlxTemplateWorkerAdapter:
             request.voice,
             request.model_revision,
             request.aligner_revision,
+            request.mlx_audio_revision,
         )
         actual = (
             manifest.get("voice"),
             manifest.get("modelRevision"),
             manifest.get("alignerRevision"),
+            manifest.get("mlxAudioRevision"),
         )
         if actual != expected:
             raise ValueError("MLX manifest provenance does not match the pinned request")

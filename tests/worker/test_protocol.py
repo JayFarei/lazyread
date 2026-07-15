@@ -23,6 +23,7 @@ def request() -> NarrationRequest:
         settings={"style": "warm", "speed": 1.0},
         model_revision="tts@abc123",
         aligner_revision="aligner@def456",
+        mlx_audio_revision="mlx-audio@fedcba",
     )
 
 
@@ -76,4 +77,4 @@ def test_worker_event_json_contract_is_versioned() -> None:
     restored = WorkerEvent.from_json(event.to_json())
 
     assert restored == event
-    assert json.loads(event.to_json())["protocol_version"] == 1
+    assert json.loads(event.to_json())["protocol_version"] == 2

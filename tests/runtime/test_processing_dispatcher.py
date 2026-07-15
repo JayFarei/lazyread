@@ -21,6 +21,7 @@ def fake_processor(_article_id: str) -> ArticleProcessor:
         worker=FakeNarrationWorker(seconds_per_word=0.01),
         model_revision="test-tts-revision",
         aligner_revision="test-aligner-revision",
+        mlx_audio_revision="test-mlx-audio-revision",
     )
 
 
@@ -138,6 +139,7 @@ def test_cancelling_an_active_job_prevents_late_publication(tmp_path: Path) -> N
             worker=BlockingWorker(),
             model_revision="test-tts-revision",
             aligner_revision="test-aligner-revision",
+            mlx_audio_revision="test-mlx-audio-revision",
         )
 
     settings = Settings(home=tmp_path / "home")
@@ -203,6 +205,7 @@ def test_trashing_an_active_job_waits_until_the_worker_releases_files(tmp_path: 
             worker=BlockingWorker(),
             model_revision="test-tts-revision",
             aligner_revision="test-aligner-revision",
+            mlx_audio_revision="test-mlx-audio-revision",
         )
 
     settings = Settings(home=tmp_path / "home")
@@ -226,6 +229,104 @@ def test_trashing_an_active_job_waits_until_the_worker_releases_files(tmp_path: 
         assert (settings.home / "trash" / article_id).is_dir()
     finally:
         release.set()
+        dispatcher.close()
+        runtime.close()
+
+
+def test_trashing_a_queued_job_does_not_wait_for_the_active_job(tmp_path: Path) -> None:
+    started = threading.Event()
+    release = threading.Event()
+    trash_finished = threading.Event()
+    processor_calls: list[str] = []
+
+    class BlockingProcessor:
+        def process(self, *_args, **_kwargs) -> None:
+            started.set()
+            release.wait(timeout=3)
+
+        def cancel(self) -> None:
+            return None
+
+        def cleanup(self) -> None:
+            return None
+
+    class UnexpectedProcessor(BlockingProcessor):
+        def process(self, *_args, **_kwargs) -> None:
+            raise AssertionError("the trashed queued job must not be processed")
+
+    def processor(article_id: str):
+        processor_calls.append(article_id)
+        return BlockingProcessor() if len(processor_calls) == 1 else UnexpectedProcessor()
+
+    settings = Settings(home=tmp_path / "home")
+    dispatcher = SerialProcessingDispatcher(processor)
+    runtime = Runtime(settings, dispatcher=dispatcher)
+    dispatcher.bind(runtime)
+    result: list[dict] = []
+    errors: list[BaseException] = []
+    trash_thread: threading.Thread | None = None
+    try:
+        active_id = runtime.submit_markdown("# Active\n\nKeep the worker busy.")["article"]["id"]
+        assert started.wait(timeout=3)
+        queued_id = runtime.submit_markdown("# Queued\n\nTrash without waiting.")["article"]["id"]
+
+        def trash_queued() -> None:
+            try:
+                result.append(runtime.trash(queued_id))
+            except BaseException as error:
+                errors.append(error)
+            finally:
+                trash_finished.set()
+
+        trash_thread = threading.Thread(target=trash_queued)
+        trash_thread.start()
+        finished_without_active_release = trash_finished.wait(timeout=0.25)
+
+        assert finished_without_active_release
+        assert errors == []
+        assert result[0]["article"]["status"] == "trashed"
+        assert processor_calls == [active_id]
+    finally:
+        release.set()
+        if trash_thread is not None:
+            trash_thread.join(timeout=3)
+        dispatcher.close()
+        runtime.close()
+
+
+def test_url_acquisition_replaces_only_the_placeholder_title(tmp_path: Path) -> None:
+    class SourceAdapter:
+        def acquire(self, url: str):
+            return acquire_markdown(
+                "# Acquired article title\n\nThe fetched article body.",
+                source_url=url,
+            )
+
+    def processor(_article_id: str) -> ArticleProcessor:
+        return ArticleProcessor(
+            worker=FakeNarrationWorker(seconds_per_word=0.01),
+            model_revision="test-tts-revision",
+            aligner_revision="test-aligner-revision",
+            mlx_audio_revision="test-mlx-audio-revision",
+            source_adapter=SourceAdapter(),
+        )
+
+    settings = Settings(home=tmp_path / "home")
+    dispatcher = SerialProcessingDispatcher(processor)
+    runtime = Runtime(settings, dispatcher=dispatcher)
+    dispatcher.bind(runtime)
+    try:
+        source_url = "https://example.test/acquired"
+        acquired_id = runtime.submit_source(source_url)["article"]["id"]
+        explicit_id = runtime.submit_source(source_url, title="Keep this title")["article"]["id"]
+
+        assert wait_for_state(runtime, acquired_id, "ready")["article"]["title"] == (
+            "Acquired article title"
+        )
+        assert wait_for_state(runtime, explicit_id, "ready")["article"]["title"] == (
+            "Keep this title"
+        )
+    finally:
         dispatcher.close()
         runtime.close()
 
@@ -262,6 +363,7 @@ def test_dispatcher_close_cancels_an_active_blocked_worker(tmp_path: Path) -> No
             worker=CancellableWorker(),
             model_revision="test-tts-revision",
             aligner_revision="test-aligner-revision",
+            mlx_audio_revision="test-mlx-audio-revision",
         )
 
     dispatcher = SerialProcessingDispatcher(processor)

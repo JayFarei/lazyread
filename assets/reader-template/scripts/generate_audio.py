@@ -180,6 +180,7 @@ def generate(force: bool) -> None:
                     "language": "English",
                 },
                 "model_revision": tts_model_revision,
+                "mlx_audio_revision": installed_mlx_revision,
             },
             ensure_ascii=False,
             sort_keys=True,

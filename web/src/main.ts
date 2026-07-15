@@ -2,14 +2,16 @@ import "./styles.css";
 import { ApiClient, ProgressStream, normalizeManifest } from "./api";
 import { preloadCompleteAudio } from "./audio-cache";
 import { articleMarkup, attachWordTimings, plainArticleText } from "./content";
-import { adjacentIndex, findWordAtTime, formatTime, getShortcut, sentenceAt, sentenceRanges, toggleHighlight } from "./player";
+import { CleanupScope } from "./lifecycle";
+import { LibraryProgressStreams, newArticleDialogMarkup } from "./library";
+import { adjacentIndex, findWordAtTime, formatTime, getShortcut, sentenceAt, sentenceRanges, shouldHandleShortcut, toggleHighlight } from "./player";
 import type { Article, AudioManifest, Highlight } from "./types";
 
 const api = new ApiClient();
 const app = document.querySelector<HTMLDivElement>("#app")!;
 if (!app) throw new Error("Missing app root");
 
-let cleanup = (): void => {};
+let routeScope = new CleanupScope();
 const escape = (value = ""): string => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!);
 const icon = (name: "library" | "sun" | "moon" | "source" | "play" | "pause" | "highlights" | "speed" | "close" | "trash" | "restore" | "retry"): string => {
   const paths = {
@@ -81,19 +83,23 @@ function articleCard(article: Article): string {
   </article>`;
 }
 
-async function renderLibrary(): Promise<void> {
+async function renderLibrary(scope: CleanupScope): Promise<void> {
   document.title = "Library · Listen Read";
   app.innerHTML = shell(`<main class="library-page">
     <section class="library-hero"><div><p class="eyebrow">Your private listening library</p><h1>Read with your ears.</h1><p>Articles become readable first. Natural local narration follows in the background.</p></div><button class="primary-button" id="new-article" type="button">New article</button></section>
     <section class="library-toolbar"><label><span>Search library</span><input id="library-search" type="search" placeholder="Title, author or source" /></label><label><span>Sort</span><select id="library-sort"><option value="recent">Most recent</option><option value="title">Title</option><option value="source">Source</option></select></label></section>
     <div id="library-content" aria-live="polite"><div class="loading-state">Opening your library…</div></div>
-    <dialog id="new-dialog"><form method="dialog" class="new-form"><div class="dialog-heading"><div><span class="eyebrow">Add to library</span><h2>New listening article</h2></div><button value="cancel" class="icon-button" aria-label="Close">${icon("close")}</button></div><label>URL<input id="new-url" type="url" placeholder="https://…" /></label><div class="or"><span>or paste Markdown</span></div><label>Markdown<textarea id="new-markdown" rows="9" placeholder="# Article title\n\nArticle text…"></textarea></label><p class="form-error" id="form-error" role="alert"></p><button class="primary-button" id="create-article" value="create">Create article</button></form></dialog>
+    ${newArticleDialogMarkup(icon("close"))}
   </main>`, "library");
   setupShell(); bindLinks();
 
   const content = document.querySelector<HTMLElement>("#library-content")!;
   let articles: Article[] = [];
-  let streams: ProgressStream[] = [];
+  const streams = new LibraryProgressStreams((update) => {
+    articles = articles.map((candidate) => candidate.id === update.id ? { ...candidate, ...update } : candidate);
+    paint();
+  });
+  scope.add(() => streams.close());
   const paint = (): void => {
     const query = (document.querySelector<HTMLInputElement>("#library-search")?.value ?? "").toLowerCase();
     const sort = document.querySelector<HTMLSelectElement>("#library-sort")?.value ?? "recent";
@@ -109,16 +115,10 @@ async function renderLibrary(): Promise<void> {
   };
   try {
     articles = await api.listArticles();
+    if (scope.disposed) return;
     paint();
-    streams = articles.filter((article) => article.status === "processing").map((article) => {
-      const stream = new ProgressStream(article.id, (update) => {
-        articles = articles.map((candidate) => candidate.id === update.id ? { ...candidate, ...update } : candidate);
-        paint();
-      });
-      stream.open();
-      return stream;
-    });
-  } catch (error) { content.innerHTML = `<div class="error-state"><h2>Library unavailable</h2><p>${escape(error instanceof Error ? error.message : "Could not reach Listen Read")}</p><button class="secondary-button" id="retry-library">Try again</button></div>`; document.querySelector("#retry-library")?.addEventListener("click", () => void renderLibrary()); }
+    streams.sync(articles);
+  } catch (error) { if (scope.disposed) return; content.innerHTML = `<div class="error-state"><h2>Library unavailable</h2><p>${escape(error instanceof Error ? error.message : "Could not reach Listen Read")}</p><button class="secondary-button" id="retry-library">Try again</button></div>`; document.querySelector("#retry-library")?.addEventListener("click", () => void route()); }
 
   document.querySelector("#library-search")?.addEventListener("input", paint);
   document.querySelector("#library-sort")?.addEventListener("change", paint);
@@ -140,18 +140,18 @@ async function renderLibrary(): Promise<void> {
     if (!card) return;
     const action = button.dataset.action as "trash" | "restore" | "retry";
     button.disabled = true;
-    try { const updated = await api.action(card.dataset.id!, action); articles = articles.map((article) => article.id === card.dataset.id && updated ? updated : article); paint(); }
+    try { const updated = await api.action(card.dataset.id!, action); if (scope.disposed) return; articles = articles.map((article) => article.id === card.dataset.id && updated ? updated : article); paint(); streams.sync(articles); }
     catch { button.disabled = false; }
   });
-  cleanup = () => streams.forEach((stream) => stream.close());
 }
 
 function prop(label: string, value?: string): string { return value && value !== "—" ? `<div><dt>${escape(label)}</dt><dd>${escape(value)}</dd></div>` : ""; }
 
-async function renderReader(id: string): Promise<void> {
+async function renderReader(id: string, scope: CleanupScope): Promise<void> {
   app.innerHTML = shell(`<main class="reader-page"><div class="loading-state">Opening article…</div></main>`, "reader"); setupShell(); bindLinks();
   let article: Article;
-  try { article = await api.getArticle(id); } catch (error) { app.innerHTML = shell(`<main class="reader-page"><div class="error-state"><h1>Article unavailable</h1><p>${escape(error instanceof Error ? error.message : "Article not found")}</p><a href="/library" data-link class="secondary-button">Return to library</a></div></main>`, "reader"); setupShell(); bindLinks(); return; }
+  try { article = await api.getArticle(id); } catch (error) { if (scope.disposed) return; app.innerHTML = shell(`<main class="reader-page"><div class="error-state"><h1>Article unavailable</h1><p>${escape(error instanceof Error ? error.message : "Article not found")}</p><a href="/library" data-link class="secondary-button">Return to library</a></div></main>`, "reader"); setupShell(); bindLinks(); return; }
+  if (scope.disposed) return;
   document.title = `${article.title} · Listen Read`;
   const production = article.productionSeconds ? formatTime(article.productionSeconds) : undefined;
   const progress = article.progress;
@@ -189,12 +189,12 @@ async function renderReader(id: string): Promise<void> {
       if (article.status === "ready") { stream?.close(); window.location.reload(); }
     }); stream.open();
   }
-  cleanup = () => stream?.close();
+  scope.add(() => stream?.close());
   if (article.status !== "ready") return;
-  await setupPlayer(article, articleBody);
+  await setupPlayer(article, articleBody, scope);
 }
 
-async function setupPlayer(article: Article, articleBody: HTMLElement): Promise<void> {
+async function setupPlayer(article: Article, articleBody: HTMLElement, scope: CleanupScope): Promise<void> {
   const required = <T extends Element>(selector: string): T => document.querySelector<T>(selector)!;
   const audio = required<HTMLAudioElement>("#audio"); const play = required<HTMLButtonElement>("#play-button"); const timeline = required<HTMLInputElement>("#timeline");
   const playerState = required<HTMLElement>("#player-state"); const download = required<HTMLElement>("#download-status"); const currentTime = required<HTMLElement>("#current-time"); const duration = required<HTMLElement>("#duration"); const audioStatus = required<HTMLElement>("#audio-status"); const audioDot = required<HTMLElement>("#audio-dot");
@@ -208,6 +208,7 @@ async function setupPlayer(article: Article, articleBody: HTMLElement): Promise<
     }
     if (!manifest) throw new Error("Narration manifest is incomplete");
   } catch (error) { playerState.textContent = "Narration unavailable"; download.textContent = error instanceof Error ? error.message : "Could not load timings"; audioDot.classList.add("error"); return; }
+  if (scope.disposed) return;
   const words = manifest.words; const wordElements = attachWordTimings(articleBody, words); const wordIndexes = [...new Set(words.map((word) => word.index))]; const paragraphs = [...articleBody.querySelectorAll<HTMLElement>("p, li, blockquote, h2, h3")].flatMap((block) => { const first = block.querySelector<HTMLElement>("[data-word-index]"); return first ? [Number(first.dataset.wordIndex)] : []; });
   const ranges = sentenceRanges(words); let activeIndex = words[0]?.index ?? 0; let activeElement: HTMLElement | null = null; let frame = 0; let blobUrl = ""; const undo: Array<() => void> = [];
   const localHighlights = JSON.parse(localStorage.getItem(`listen-read-highlights:${article.id}`) ?? "[]") as Highlight[];
@@ -230,7 +231,11 @@ async function setupPlayer(article: Article, articleBody: HTMLElement): Promise<
   const audioUrl = article.audioUrl ?? manifest.audio; const revision = article.audioRevision ?? manifest.revision ?? `${article.id}-${article.updatedAt ?? "ready"}`;
   try {
     const blob = await preloadCompleteAudio(audioUrl, revision, ({ loaded, total, percent }) => { playerState.textContent = "Downloading for uninterrupted playback"; download.textContent = total ? `${Math.round(percent)}% · ${size(loaded)} of ${size(total)}` : `${size(loaded)} downloaded`; audioStatus.textContent = `Caching narration · ${Math.round(percent)}%`; });
-    blobUrl = URL.createObjectURL(blob); audio.src = blobUrl; await new Promise<void>((resolve, reject) => { audio.addEventListener("canplaythrough", () => resolve(), { once: true }); audio.addEventListener("error", () => reject(new Error("Browser could not decode narration")), { once: true }); audio.load(); });
+    blobUrl = URL.createObjectURL(blob);
+    scope.add(() => { if (blobUrl) URL.revokeObjectURL(blobUrl); });
+    if (scope.disposed) return;
+    audio.src = blobUrl; await new Promise<void>((resolve, reject) => { audio.addEventListener("canplaythrough", () => resolve(), { once: true }); audio.addEventListener("error", () => reject(new Error("Browser could not decode narration")), { once: true }); audio.load(); });
+    if (scope.disposed) return;
     play.disabled = false; timeline.disabled = false; required<HTMLButtonElement>("#speed-button").disabled = false; playerState.textContent = "Ready to listen"; download.textContent = `${size(blob.size)} · available offline`; audioStatus.textContent = "Narration ready offline"; audioDot.classList.add("ready");
   } catch (error) { playerState.textContent = "Narration unavailable"; download.textContent = error instanceof Error ? error.message : "Download failed"; audioDot.classList.add("error"); return; }
   const reveal = (element: HTMLElement): void => { const target = window.innerHeight * 0.25; const delta = element.getBoundingClientRect().top - target; if (Math.abs(delta) > 42) window.scrollBy({ top: delta, behavior: "smooth" }); };
@@ -241,15 +246,18 @@ async function setupPlayer(article: Article, articleBody: HTMLElement): Promise<
   timeline.addEventListener("input", () => { audio.currentTime = Number(timeline.value) / 1000 * audio.duration; update(); });
   articleBody.addEventListener("click", (event) => { const word = (event.target as Element).closest<HTMLElement>("[data-word-index]"); if (word) seek(Number(word.dataset.wordIndex)); });
   const speedButton = required<HTMLButtonElement>("#speed-button"); const speedMenu = required<HTMLElement>("#speed-menu"); speedButton.addEventListener("click", () => { speedMenu.hidden = !speedMenu.hidden; speedButton.ariaExpanded = String(!speedMenu.hidden); }); speedMenu.addEventListener("click", (event) => { const button = (event.target as Element).closest<HTMLButtonElement>("[data-rate]"); if (!button) return; audio.playbackRate = Number(button.dataset.rate); required("#speed-value").textContent = `${button.dataset.rate}×`; speedMenu.querySelectorAll("button").forEach((item) => item.ariaPressed = String(item === button)); speedMenu.hidden = true; speedButton.ariaExpanded = "false"; });
-  document.addEventListener("keydown", (event) => { const target = event.target as HTMLElement; if (target.matches("input, textarea, select") || target.isContentEditable || target.closest("button, a")) return; const shortcut = getShortcut(event); if (!shortcut) return; event.preventDefault(); if (shortcut.type === "toggle") void toggle(); else if (shortcut.type === "undo") undo.pop()?.(); else if (shortcut.type === "word" || shortcut.type === "paragraph") { const next = adjacentIndex(shortcut.type === "word" ? wordIndexes : paragraphs, activeIndex, shortcut.direction); if (next !== null) seek(next); } else { const range = sentenceAt(ranges, activeIndex, shortcut.previous); if (range) { const before = highlights; undo.push(() => { highlights = before; saveHighlights(); }); highlights = toggleHighlight(highlights, range); saveHighlights(); } } });
-  cleanup = () => { cancelAnimationFrame(frame); if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  const onKeyDown = (event: KeyboardEvent): void => { const shortcut = getShortcut(event); if (!shortcut || !shouldHandleShortcut(event, shortcut)) return; event.preventDefault(); if (shortcut.type === "toggle") void toggle(); else if (shortcut.type === "undo") undo.pop()?.(); else if (shortcut.type === "word" || shortcut.type === "paragraph") { const next = adjacentIndex(shortcut.type === "word" ? wordIndexes : paragraphs, activeIndex, shortcut.direction); if (next !== null) seek(next); } else { const range = sentenceAt(ranges, activeIndex, shortcut.previous); if (range) { const before = highlights; undo.push(() => { highlights = before; saveHighlights(); }); highlights = toggleHighlight(highlights, range); saveHighlights(); } } };
+  scope.listen(document, "keydown", onKeyDown as EventListener);
+  scope.add(() => cancelAnimationFrame(frame));
 }
 
 async function route(): Promise<void> {
-  cleanup(); cleanup = () => {};
+  routeScope.dispose();
+  routeScope = new CleanupScope();
+  const scope = routeScope;
   const match = location.pathname.match(/^\/read\/([^/]+)/);
-  if (match) await renderReader(decodeURIComponent(match[1]!));
-  else await renderLibrary();
+  if (match) await renderReader(decodeURIComponent(match[1]!), scope);
+  else await renderLibrary(scope);
 }
 
 if (localStorage.getItem("listen-read-theme") === "dark" || (!localStorage.getItem("listen-read-theme") && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark");

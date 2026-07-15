@@ -163,6 +163,10 @@ class DocumentPipeline:
     ) -> PreparedDocument:
         policy = policy or ScientificPolicy()
         markdown = acquired.markdown
+        title = acquired.metadata.get("title", "").strip()
+        if not title:
+            heading = re.search(r"^#\s+(.+?)\s*$", markdown, re.MULTILINE)
+            title = heading.group(1).strip() if heading else ""
         document_id = _stable_id("doc", markdown)
         display_words = tuple(
             DisplayWord(
@@ -177,7 +181,7 @@ class DocumentPipeline:
         display = DisplayDocument(
             document_id=document_id,
             markdown=markdown,
-            title=acquired.metadata.get("title"),
+            title=title or None,
             metadata=dict(acquired.metadata),
             words=display_words,
         )

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { findWordAtTime, getShortcut, sentenceRanges, toggleHighlight } from "./player";
+import { findWordAtTime, getShortcut, sentenceRanges, shouldHandleShortcut, toggleHighlight } from "./player";
 
 const words = [
   { index: 0, text: "One", start: 0, end: 0.4 },
@@ -20,6 +20,33 @@ describe("player seams", () => {
     expect(getShortcut(new KeyboardEvent("keydown", { key: "P", shiftKey: true }))).toEqual({ type: "paragraph", direction: "previous" });
     expect(getShortcut(new KeyboardEvent("keydown", { key: "w" }))).toEqual({ type: "word", direction: "next" });
     expect(getShortcut(new KeyboardEvent("keydown", { key: " " }))).toBeNull();
+  });
+
+  it("keeps letter shortcuts active on controls without claiming their native Enter", () => {
+    const button = document.createElement("button");
+    const link = document.createElement("a");
+    const input = document.createElement("input");
+    const editor = document.createElement("div");
+    editor.setAttribute("contenteditable", "true");
+    document.body.append(button, link, input, editor);
+
+    const eventFrom = (target: HTMLElement, key: string): KeyboardEvent => {
+      const event = new KeyboardEvent("keydown", { key, bubbles: true });
+      target.dispatchEvent(event);
+      return event;
+    };
+
+    const buttonWord = eventFrom(button, "w");
+    const buttonToggle = eventFrom(button, "Enter");
+    const linkHighlight = eventFrom(link, "h");
+    const inputWord = eventFrom(input, "w");
+    const editorWord = eventFrom(editor, "w");
+
+    expect(shouldHandleShortcut(buttonWord, getShortcut(buttonWord)!)).toBe(true);
+    expect(shouldHandleShortcut(buttonToggle, getShortcut(buttonToggle)!)).toBe(false);
+    expect(shouldHandleShortcut(linkHighlight, getShortcut(linkHighlight)!)).toBe(true);
+    expect(shouldHandleShortcut(inputWord, getShortcut(inputWord)!)).toBe(false);
+    expect(shouldHandleShortcut(editorWord, getShortcut(editorWord)!)).toBe(false);
   });
 
   it("derives sentence highlights and toggles them", () => {
