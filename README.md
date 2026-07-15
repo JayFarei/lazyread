@@ -16,7 +16,7 @@ Install the Lazyread skill globally for Codex, Claude Code, and other agents
 that use the shared skills directory:
 
 ```sh
-npx skills add https://github.com/jayfarei/lazyread/ --global --agent universal claude-code --yes
+npx --yes skills add https://github.com/jayfarei/lazyread/ --global --agent universal claude-code --yes
 ```
 
 Restart your agent, then invoke the skill with a URL or Markdown file:
