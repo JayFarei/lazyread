@@ -3,20 +3,17 @@
 Turn a URL or Markdown file into a private listening article with natural local
 speech, synchronized word highlighting, auto-scroll, and saved highlights.
 
-[![Lazyread walkthrough using the TRACE paper](docs/media/lazyread-trace-walkthrough-poster.png)](docs/media/lazyread-trace-walkthrough.mp4)
-
-[Watch the 46-second walkthrough](docs/media/lazyread-trace-walkthrough.mp4).
+https://github.com/user-attachments/assets/886577bf-2b03-4c03-8e1c-3cbfb1bdafa2
 
 ## Install
 
 Lazyread currently supports Apple Silicon Macs running macOS 14 or newer. It
 also needs Node.js 20.19+, FFmpeg 6+, and [UV](https://docs.astral.sh/uv/).
 
-Install the Lazyread skill globally for Codex, Claude Code, and other agents
-that use the shared skills directory:
+Install the Lazyread skill globally:
 
 ```sh
-npx --yes skills add https://github.com/jayfarei/lazyread/ --global --agent universal claude-code --yes
+npx --yes skills add https://github.com/jayfarei/lazyread/ --global --agent universal --yes
 ```
 
 Restart your agent, then invoke the skill with a URL or Markdown file:
