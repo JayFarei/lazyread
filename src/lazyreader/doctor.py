@@ -11,8 +11,10 @@ from typing import Any
 
 
 def _free_bytes(path: Path) -> int:
-    path.mkdir(parents=True, exist_ok=True)
-    return shutil.disk_usage(path).free
+    candidate = path.expanduser()
+    while not candidate.exists() and candidate != candidate.parent:
+        candidate = candidate.parent
+    return shutil.disk_usage(candidate).free
 
 
 def _physical_memory_bytes() -> int | None:
@@ -32,7 +34,11 @@ def _version(command: str, *arguments: str) -> tuple[str | None, tuple[int, ...]
         )
     except (OSError, subprocess.TimeoutExpired):
         return None, ()
-    value = (result.stdout or result.stderr).splitlines()[0] if (result.stdout or result.stderr) else ""
+    value = (
+        (result.stdout or result.stderr).splitlines()[0]
+        if (result.stdout or result.stderr)
+        else ""
+    )
     match = re.search(r"(\d+)(?:\.(\d+))?(?:\.(\d+))?", value)
     parsed = tuple(int(part) for part in match.groups(default="0")) if match else ()
     return value or None, parsed
@@ -79,25 +85,39 @@ def report(home: Path) -> dict[str, Any]:
             "minimum": "0.5.0",
             "install_hint": "brew install uv",
         },
-        "tailscale": {"available": shutil.which("tailscale") is not None, "path": shutil.which("tailscale")},
+        "tailscale": {
+            "available": shutil.which("tailscale") is not None,
+            "path": shutil.which("tailscale"),
+        },
         "disk": {"free_bytes": _free_bytes(home), "recommended_bytes": 12 * 1024**3},
-        "memory": {"physical_bytes": _physical_memory_bytes(), "recommended_bytes": 16 * 1024**3},
+        "memory": {
+            "physical_bytes": _physical_memory_bytes(),
+            "recommended_bytes": 16 * 1024**3,
+        },
     }
     memory = checks["memory"]["physical_bytes"]
     requirements = {
-        "platform": system == "Darwin" and machine == "arm64" and macos_parts >= (14, 0),
+        "platform": system == "Darwin"
+        and machine == "arm64"
+        and macos_parts >= (14, 0),
         "python": bool(checks["python"]["available"]),
         "node": bool(checks["node"]["available"]),
         "ffmpeg": bool(checks["ffmpeg"]["available"]),
         "uv": bool(checks["uv"]["available"]),
-        "disk": int(checks["disk"]["free_bytes"]) >= int(checks["disk"]["recommended_bytes"]),
-        "memory": memory is not None and int(memory) >= int(checks["memory"]["recommended_bytes"]),
+        "disk": int(checks["disk"]["free_bytes"])
+        >= int(checks["disk"]["recommended_bytes"]),
+        "memory": memory is not None
+        and int(memory) >= int(checks["memory"]["recommended_bytes"]),
     }
     blockers = [name for name, available in requirements.items() if not available]
     supported = not blockers
     return {
         "supported": supported,
-        "platform": {"system": system, "machine": machine, "release": platform.release()},
+        "platform": {
+            "system": system,
+            "machine": machine,
+            "release": platform.release(),
+        },
         "home": str(home),
         "checks": checks,
         "requirements": requirements,

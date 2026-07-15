@@ -28,8 +28,16 @@ Writer = Callable[[str], None]
 
 def _submission_payload(args: argparse.Namespace, input_stream: object) -> dict:
     if args.markdown:
-        markdown = input_stream.read() if args.markdown == "-" else Path(args.markdown).read_text(encoding="utf-8")
-        return {"markdown": markdown, "title": args.title, "source_url": args.source_url}
+        markdown = (
+            input_stream.read()
+            if args.markdown == "-"
+            else Path(args.markdown).read_text(encoding="utf-8")
+        )
+        return {
+            "markdown": markdown,
+            "title": args.title,
+            "source_url": args.source_url,
+        }
     if args.prepared:
         prepared = json.loads(Path(args.prepared).read_text(encoding="utf-8"))
         document = None
@@ -44,7 +52,9 @@ def _submission_payload(args: argparse.Namespace, input_stream: object) -> dict:
             raise ValueError("prepared document requires display_markdown or markdown")
         return {
             "markdown": markdown,
-            "title": args.title or prepared.get("title") or prepared.get("display", {}).get("title"),
+            "title": args.title
+            or prepared.get("title")
+            or prepared.get("display", {}).get("title"),
             "source_url": args.source_url
             or prepared.get("source_url")
             or prepared.get("provenance", {}).get("source_url"),
@@ -105,36 +115,58 @@ def _action_on_running_server(
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="listen-read", description="Local-first listening library")
-    parser.add_argument("--home", help="runtime home (or LISTEN_READ_HOME)")
+    parser = argparse.ArgumentParser(
+        prog="lazyreader", description="Local-first listening library"
+    )
+    parser.add_argument("--home", help="runtime home (or LAZYREADER_HOME)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("doctor", help="check compatibility without downloading models")
 
-    setup = commands.add_parser("setup", help="install pinned local dependencies and models")
-    setup.add_argument("--yes", action="store_true", help="confirm the disclosed downloads")
-    setup.add_argument("--skip-model-download", action="store_true", help=argparse.SUPPRESS)
-    setup.add_argument("--force", action="store_true", help="reinstall the pinned runtime")
+    setup = commands.add_parser(
+        "setup", help="install pinned local dependencies and models"
+    )
+    setup.add_argument(
+        "--yes", action="store_true", help="confirm the disclosed downloads"
+    )
+    setup.add_argument(
+        "--skip-model-download", action="store_true", help=argparse.SUPPRESS
+    )
+    setup.add_argument(
+        "--force", action="store_true", help="reinstall the pinned runtime"
+    )
 
-    skill_install = commands.add_parser("install-skills", help="install Listen Read and Defuddle skills")
-    skill_install.add_argument("--target", action="append", default=[], help="skills root; repeatable")
-    skill_install.add_argument("--force", action="store_true", help="replace existing skill folders")
+    skill_install = commands.add_parser(
+        "install-skills", help="install Lazyreader and Defuddle skills"
+    )
+    skill_install.add_argument(
+        "--target", action="append", default=[], help="skills root; repeatable"
+    )
+    skill_install.add_argument(
+        "--force", action="store_true", help="replace existing skill folders"
+    )
 
     serve = commands.add_parser("serve", help="serve the library")
     serve.add_argument("--host", default=None)
     serve.add_argument("--port", type=int, default=None)
     serve.add_argument("--detach", action="store_true")
 
-    expose = commands.add_parser("expose", help="add a private Tailscale Serve listener")
+    expose = commands.add_parser(
+        "expose", help="add a private Tailscale Serve listener"
+    )
     expose.add_argument("--https-port", type=int, required=True)
     expose.add_argument("--local-port", type=int, default=None)
 
     add = commands.add_parser("add", help="add a source or prepared document")
     add.add_argument("source", nargs="?")
     source_group = add.add_mutually_exclusive_group()
-    source_group.add_argument("--markdown", metavar="PATH", help="Markdown file, or - for stdin")
-    source_group.add_argument("--prepared", metavar="PATH", help="prepared-document JSON")
+    source_group.add_argument(
+        "--markdown", metavar="PATH", help="Markdown file, or - for stdin"
+    )
+    source_group.add_argument(
+        "--prepared", metavar="PATH", help="prepared-document JSON"
+    )
     add.add_argument("--title")
     add.add_argument("--source-url")
 
@@ -149,7 +181,9 @@ def _parser() -> argparse.ArgumentParser:
     purge.add_argument("article_id")
     purge.add_argument("--yes", action="store_true", help="confirm permanent deletion")
     commands.add_parser("storage", help="report storage by category")
-    clear = commands.add_parser("clear-cache", help="remove regenerable cached artifacts")
+    clear = commands.add_parser(
+        "clear-cache", help="remove regenerable cached artifacts"
+    )
     clear.add_argument("scope", choices=("chunks", "models"))
     clear.add_argument("--yes", action="store_true", help="confirm cache removal")
     # Agent-facing examples read more naturally with output selection after the
@@ -203,7 +237,9 @@ def main(
             _emit(write, install_skills(targets, force=args.force), as_json=args.json)
             return 0
         if args.command == "expose":
-            network_settings = Settings.from_environment(home=args.home, port=args.local_port)
+            network_settings = Settings.from_environment(
+                home=args.home, port=args.local_port
+            )
             _emit(
                 write,
                 expose_tailscale(network_settings, https_port=args.https_port),
@@ -211,14 +247,18 @@ def main(
             )
             return 0
         if args.command == "serve":
-            settings = Settings.from_environment(home=args.home, host=args.host, port=args.port)
+            settings = Settings.from_environment(
+                home=args.home, host=args.host, port=args.port
+            )
             if args.detach:
                 data = _detach(settings)
                 _emit(write, data, as_json=args.json)
                 return 0
             return _serve(settings, write, args.json)
 
-        submission = _submission_payload(args, input_stream) if args.command == "add" else None
+        submission = (
+            _submission_payload(args, input_stream) if args.command == "add" else None
+        )
         if submission is not None:
             data = _submit_to_running_server(settings, submission)
             if data is not None:
@@ -227,7 +267,9 @@ def main(
 
         if args.command in {"trash", "restore", "purge"}:
             if args.command != "purge" or args.yes:
-                data = _action_on_running_server(settings, args.command, args.article_id)
+                data = _action_on_running_server(
+                    settings, args.command, args.article_id
+                )
                 if data is not None:
                     _emit(write, data, as_json=args.json)
                     return 0
@@ -248,7 +290,11 @@ def main(
                         submission["source_url"], title=submission.get("title")
                     )
             elif args.command == "list":
-                data = {"articles": runtime.list_articles(include_trashed=args.include_trashed)}
+                data = {
+                    "articles": runtime.list_articles(
+                        include_trashed=args.include_trashed
+                    )
+                }
             elif args.command == "show":
                 data = runtime.get_article(args.article_id)
             elif args.command == "trash":
@@ -264,7 +310,9 @@ def main(
                 data = {"storage": runtime.storage()}
             elif args.command == "clear-cache":
                 if not args.yes:
-                    raise ValueError("cache removal has regeneration costs; pass --yes to confirm")
+                    raise ValueError(
+                        "cache removal has regeneration costs; pass --yes to confirm"
+                    )
                 data = runtime.clear_cache(args.scope)
             else:
                 raise ValueError(f"unknown command: {args.command}")
@@ -305,7 +353,11 @@ def _serve(settings: Settings, write: Writer, as_json: bool) -> int:
     signal.signal(signal.SIGINT, stop)
     _emit(
         write,
-        {"status": "serving", "url": f"http://{settings.host}:{server.server_port}", "pid": os.getpid()},
+        {
+            "status": "serving",
+            "url": f"http://{settings.host}:{server.server_port}",
+            "pid": os.getpid(),
+        },
         as_json=as_json,
     )
     try:
@@ -325,14 +377,18 @@ def _detach(settings: Settings) -> dict:
         try:
             pid = int(pid_file.read_text())
             os.kill(pid, 0)
-            return {"status": "already_running", "url": f"http://{settings.host}:{settings.port}", "pid": pid}
+            return {
+                "status": "already_running",
+                "url": f"http://{settings.host}:{settings.port}",
+                "pid": pid,
+            }
         except (ValueError, OSError):
             pid_file.unlink(missing_ok=True)
     log_path = settings.home / "logs" / "server.log"
     command = [
         sys.executable,
         "-m",
-        "listen_read",
+        "lazyreader",
         "--home",
         str(settings.home),
         "serve",
@@ -363,7 +419,11 @@ def _detach(settings: Settings) -> dict:
         try:
             with urllib.request.urlopen(health, timeout=0.2) as response:
                 if response.status == 200:
-                    return {"status": "started", "url": f"http://{settings.host}:{settings.port}", "pid": process.pid}
+                    return {
+                        "status": "started",
+                        "url": f"http://{settings.host}:{settings.port}",
+                        "pid": process.pid,
+                    }
         except OSError:
             time.sleep(0.1)
     process.terminate()

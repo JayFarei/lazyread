@@ -1,5 +1,5 @@
 {
-  "name": "@listen-read/web",
+  "name": "@lazyreader/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",

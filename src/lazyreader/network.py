@@ -12,13 +12,17 @@ Runner = Callable[..., subprocess.CompletedProcess[str]]
 HealthCheck = Callable[[Settings], bool]
 
 
-def _listen_read_is_healthy(settings: Settings) -> bool:
+def _lazyreader_is_healthy(settings: Settings) -> bool:
     try:
         with urllib.request.urlopen(
             f"http://127.0.0.1:{settings.port}/api/health", timeout=1
         ) as response:
             payload = json.loads(response.read())
-        return response.status == 200 and payload.get("status") == "ok" and bool(payload.get("version"))
+        return (
+            response.status == 200
+            and payload.get("status") == "ok"
+            and bool(payload.get("version"))
+        )
     except (OSError, json.JSONDecodeError):
         return False
 
@@ -28,7 +32,7 @@ def expose_tailscale(
     *,
     https_port: int,
     runner: Runner = subprocess.run,
-    health_check: HealthCheck = _listen_read_is_healthy,
+    health_check: HealthCheck = _lazyreader_is_healthy,
 ) -> dict:
     """Add one tailnet-only Serve listener without resetting unrelated routes."""
 
@@ -36,7 +40,7 @@ def expose_tailscale(
         raise ValueError("Tailscale HTTPS port must be between 1 and 65535")
     if not health_check(settings):
         raise ValueError(
-            f"Listen Read is not healthy on local port {settings.port}; refusing to expose it"
+            f"Lazyreader is not healthy on local port {settings.port}; refusing to expose it"
         )
     status = runner(
         ["tailscale", "serve", "status", "--json"],
@@ -88,6 +92,12 @@ def expose_tailscale(
     )
     if identity.returncode:
         raise OSError(identity.stderr.strip() or "Tailscale identity is unavailable")
-    dns_name = json.loads(identity.stdout).get("Self", {}).get("DNSName", "").rstrip(".")
+    dns_name = (
+        json.loads(identity.stdout).get("Self", {}).get("DNSName", "").rstrip(".")
+    )
     url = f"https://{dns_name}:{https_port}" if dns_name else None
-    return {"status": "already_exposed" if matching else "exposed", "url": url, "https_port": https_port}
+    return {
+        "status": "already_exposed" if matching else "exposed",
+        "url": url,
+        "https_port": https_port,
+    }

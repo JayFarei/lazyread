@@ -5,7 +5,7 @@ import json
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Mapping, Protocol, TextIO
 
 if TYPE_CHECKING:
-    from listen_read.pipeline import PreparedDocument
+    from lazyreader.pipeline import PreparedDocument
 
 
 PROTOCOL_VERSION = 2

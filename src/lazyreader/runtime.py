@@ -67,7 +67,7 @@ class Runtime:
     ):
         self.settings = settings
         self.settings.ensure_directories()
-        self._connection = connect(settings.home / "listen-read.sqlite")
+        self._connection = connect(settings.home / "lazyreader.sqlite")
         self._lock = threading.RLock()
         self._dispatcher = dispatcher or DeferredDispatcher()
         if recover_interrupted:
@@ -82,7 +82,8 @@ class Runtime:
         stamp = now()
         with self._lock, self._connection:
             rows = self._connection.execute(
-                f"SELECT article_id FROM jobs WHERE state IN ({placeholders})", tuple(ACTIVE_STATES)
+                f"SELECT article_id FROM jobs WHERE state IN ({placeholders})",
+                tuple(ACTIVE_STATES),
             ).fetchall()
             self._connection.execute(
                 f"UPDATE jobs SET state='interrupted', resumable=1, updated_at=? "
@@ -90,7 +91,11 @@ class Runtime:
                 (stamp, *ACTIVE_STATES),
             )
             for row in rows:
-                self._append_event(row["article_id"], "job", {"state": "interrupted", "resumable": True})
+                self._append_event(
+                    row["article_id"],
+                    "job",
+                    {"state": "interrupted", "resumable": True},
+                )
 
     def submit_markdown(
         self,
@@ -109,27 +114,39 @@ class Runtime:
             (temporary / "source.md").write_text(markdown, encoding="utf-8")
             if prepared_document is not None:
                 (temporary / "document.json").write_text(
-                    json.dumps(prepared_document, ensure_ascii=False, indent=2), encoding="utf-8"
+                    json.dumps(prepared_document, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
                 )
             os.replace(temporary, article_dir)
         except BaseException:
             shutil.rmtree(temporary, ignore_errors=True)
             raise
 
-        resolved_title = (title or title_from_markdown(markdown)).strip() or "Untitled article"
+        resolved_title = (
+            title or title_from_markdown(markdown)
+        ).strip() or "Untitled article"
         try:
             with self._lock, self._connection:
                 self._connection.execute(
                     "INSERT INTO articles(id,title,source_url,status,created_at,updated_at) "
                     "VALUES(?,?,?,?,?,?)",
-                    (article_id, resolved_title, source_url, "processing", stamp, stamp),
+                    (
+                        article_id,
+                        resolved_title,
+                        source_url,
+                        "processing",
+                        stamp,
+                        stamp,
+                    ),
                 )
                 self._connection.execute(
                     "INSERT INTO jobs(article_id,state,phase,updated_at) VALUES(?,?,?,?)",
                     (article_id, "queued", "queued", stamp),
                 )
                 self._append_event(article_id, "article", {"status": "processing"})
-                self._append_event(article_id, "job", {"state": "queued", "phase": "queued"})
+                self._append_event(
+                    article_id, "job", {"state": "queued", "phase": "queued"}
+                )
         except BaseException:
             shutil.rmtree(article_dir, ignore_errors=True)
             raise
@@ -137,7 +154,9 @@ class Runtime:
         self._dispatcher.submit(article_id, self.settings.home)
         return self.get_article(article_id)
 
-    def submit_source(self, source_url: str, *, title: str | None = None) -> dict[str, Any]:
+    def submit_source(
+        self, source_url: str, *, title: str | None = None
+    ) -> dict[str, Any]:
         label = title or source_url
         return self.submit_markdown("", title=label, source_url=source_url)
 
@@ -163,7 +182,9 @@ class Runtime:
         location = self._article_directory(article_id, row["status"])
         source_path = location / "source.md"
         result = self._decorate_artifacts(self._summary(row))
-        result["markdown"] = source_path.read_text(encoding="utf-8") if source_path.exists() else ""
+        result["markdown"] = (
+            source_path.read_text(encoding="utf-8") if source_path.exists() else ""
+        )
         document_path = location / "document.json"
         if document_path.exists():
             result["document"] = json.loads(document_path.read_text(encoding="utf-8"))
@@ -205,15 +226,28 @@ class Runtime:
             text = str(item.get("text", "")).strip()
             start = int(item.get("startIndex", -1))
             end = int(item.get("endIndex", -1))
-            if not identifier or not text or len(text) > 20_000 or start < 0 or end < start:
+            if (
+                not identifier
+                or not text
+                or len(text) > 20_000
+                or start < 0
+                or end < start
+            ):
                 raise ValueError("highlight id, text, and index range are invalid")
-            normalized.append((identifier, text, start, end, str(item.get("createdAt") or now())))
+            normalized.append(
+                (identifier, text, start, end, str(item.get("createdAt") or now()))
+            )
         with self._lock, self._connection:
-            self._connection.execute("DELETE FROM highlights WHERE article_id=?", (article_id,))
+            self._connection.execute(
+                "DELETE FROM highlights WHERE article_id=?", (article_id,)
+            )
             self._connection.executemany(
                 "INSERT INTO highlights(id,article_id,text,start_index,end_index,created_at) "
                 "VALUES(?,?,?,?,?,?)",
-                [(identifier, article_id, text, start, end, created) for identifier, text, start, end, created in normalized],
+                [
+                    (identifier, article_id, text, start, end, created)
+                    for identifier, text, start, end, created in normalized
+                ],
             )
             self._append_event(article_id, "highlights", {"count": len(normalized)})
         return self.list_highlights(article_id)
@@ -280,7 +314,12 @@ class Runtime:
         stamp = now()
         updates = ["state=?", "updated_at=?"]
         values: list[Any] = [state, stamp]
-        for column, value in (("phase", phase), ("completed", completed), ("total", total), ("error", error)):
+        for column, value in (
+            ("phase", phase),
+            ("completed", completed),
+            ("total", total),
+            ("error", error),
+        ):
             if value is not None:
                 updates.append(f"{column}=?")
                 values.append(value)
@@ -305,7 +344,13 @@ class Runtime:
                     (resolved_title, article_id),
                 )
                 title_changed = title_cursor.rowcount > 0
-            article_status = "ready" if state == "ready" else "failed" if state == "failed" else "processing"
+            article_status = (
+                "ready"
+                if state == "ready"
+                else "failed"
+                if state == "failed"
+                else "processing"
+            )
             self._connection.execute(
                 "UPDATE articles SET status=?,updated_at=? WHERE id=? AND status!='trashed'",
                 (article_status, stamp, article_id),
@@ -338,14 +383,20 @@ class Runtime:
         if trash and current["job"]["state"] not in {"ready", "failed", "cancelled"}:
             self.cancel(article_id)
             if not self._dispatcher.wait(article_id, 180):
-                raise ValueError("article cancellation is still in progress; try trash again")
+                raise ValueError(
+                    "article cancellation is still in progress; try trash again"
+                )
             current = self.get_article(article_id)
         source = self._article_directory(article_id, status)
-        destination = self.settings.home / ("trash" if trash else "articles") / article_id
+        destination = (
+            self.settings.home / ("trash" if trash else "articles") / article_id
+        )
         if source.exists():
             os.replace(source, destination)
         stamp = now()
-        next_status = "trashed" if trash else self._status_for_job(current["job"]["state"])
+        next_status = (
+            "trashed" if trash else self._status_for_job(current["job"]["state"])
+        )
         with self._lock, self._connection:
             self._connection.execute(
                 "UPDATE articles SET status=?,trashed_at=?,updated_at=? WHERE id=?",
@@ -380,9 +431,12 @@ class Runtime:
                 (stamp, article_id),
             )
             self._connection.execute(
-                "UPDATE articles SET status='processing',updated_at=? WHERE id=?", (stamp, article_id)
+                "UPDATE articles SET status='processing',updated_at=? WHERE id=?",
+                (stamp, article_id),
             )
-            self._append_event(article_id, "job", {"state": "queued", "phase": "queued"})
+            self._append_event(
+                article_id, "job", {"state": "queued", "phase": "queued"}
+            )
         self._dispatcher.submit(article_id, self.settings.home)
         return self.get_article(article_id)
 
@@ -391,7 +445,9 @@ class Runtime:
         if current["job"]["state"] in {"ready", "failed", "cancelled"}:
             raise ValueError(f"Job cannot be cancelled from {current['job']['state']}")
         self._dispatcher.cancel(article_id)
-        return self.transition_job(article_id, "cancelled", phase="cancelled", resumable=False)
+        return self.transition_job(
+            article_id, "cancelled", phase="cancelled", resumable=False
+        )
 
     def clear_cache(self, scope: str) -> dict[str, Any]:
         paths = {
@@ -419,10 +475,12 @@ class Runtime:
             "runtime": self.settings.home / "runtime",
             "trash": self.settings.home / "trash",
         }
-        result = {name: {"bytes": _directory_bytes(path)} for name, path in paths.items()}
+        result = {
+            name: {"bytes": _directory_bytes(path)} for name, path in paths.items()
+        }
         result["total"] = {
             "bytes": sum(value["bytes"] for value in result.values())
-            + _directory_bytes(self.settings.home / "listen-read.sqlite")
+            + _directory_bytes(self.settings.home / "lazyreader.sqlite")
         }
         return result
 
@@ -453,18 +511,25 @@ class Runtime:
     def latest_sequence(self, article_id: str) -> int:
         with self._lock:
             row = self._connection.execute(
-                "SELECT COALESCE(MAX(sequence),0) AS sequence FROM events WHERE article_id=?", (article_id,)
+                "SELECT COALESCE(MAX(sequence),0) AS sequence FROM events WHERE article_id=?",
+                (article_id,),
             ).fetchone()
         return int(row["sequence"])
 
-    def _append_event(self, article_id: str, kind: str, payload: dict[str, Any]) -> None:
+    def _append_event(
+        self, article_id: str, kind: str, payload: dict[str, Any]
+    ) -> None:
         self._connection.execute(
             "INSERT INTO events(article_id,kind,payload,created_at) VALUES(?,?,?,?)",
             (article_id, kind, json.dumps(payload, separators=(",", ":")), now()),
         )
 
     def _article_directory(self, article_id: str, status: str) -> Path:
-        return self.settings.home / ("trash" if status == "trashed" else "articles") / article_id
+        return (
+            self.settings.home
+            / ("trash" if status == "trashed" else "articles")
+            / article_id
+        )
 
     def _decorate_artifacts(self, article: dict[str, Any]) -> dict[str, Any]:
         directory = self._article_directory(article["id"], article["status"])
@@ -493,8 +558,12 @@ class Runtime:
             try:
                 profile = json.loads(telemetry.read_text(encoding="utf-8"))
                 article["telemetry"] = profile
-                wall_seconds = profile.get("wall_seconds", profile.get("totalWallSeconds"))
-                peak_memory = profile.get("peak_rss_bytes", profile.get("mlxPeakMemoryBytes"))
+                wall_seconds = profile.get(
+                    "wall_seconds", profile.get("totalWallSeconds")
+                )
+                peak_memory = profile.get(
+                    "peak_rss_bytes", profile.get("mlxPeakMemoryBytes")
+                )
                 if wall_seconds is not None:
                     article["production_seconds"] = wall_seconds
                 if peak_memory is not None:

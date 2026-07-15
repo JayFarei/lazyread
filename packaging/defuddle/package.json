@@ -1,5 +1,5 @@
 {
-  "name": "listen-read-defuddle-runtime",
+  "name": "lazyreader-defuddle-runtime",
   "private": true,
   "version": "0.1.0",
   "dependencies": {

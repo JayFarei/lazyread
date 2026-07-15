@@ -59,7 +59,9 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
     """Use a validated address while retaining hostname TLS verification."""
 
     def __init__(self, hostname: str, port: int, address: str, timeout: float):
-        super().__init__(hostname, port=port, timeout=timeout, context=ssl.create_default_context())
+        super().__init__(
+            hostname, port=port, timeout=timeout, context=ssl.create_default_context()
+        )
         self._validated_address = address
 
     def connect(self) -> None:
@@ -74,7 +76,9 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 def _public_addresses(url: str, resolver: Resolver) -> tuple[str, int, list[str]]:
     parsed = urlsplit(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise SourceAcquisitionError("URL acquisition requires an http:// or https:// hostname.")
+        raise SourceAcquisitionError(
+            "URL acquisition requires an http:// or https:// hostname."
+        )
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
         addresses = list(
@@ -87,7 +91,9 @@ def _public_addresses(url: str, resolver: Resolver) -> tuple[str, int, list[str]
         raise SourceAcquisitionError(
             f"Could not resolve the source hostname: {parsed.hostname}"
         ) from exc
-    if not addresses or any(not ipaddress.ip_address(address).is_global for address in addresses):
+    if not addresses or any(
+        not ipaddress.ip_address(address).is_global for address in addresses
+    ):
         raise SourceAcquisitionError(
             "URL acquisition refuses loopback, private, link-local, and reserved network addresses."
         )
@@ -125,7 +131,7 @@ def fetch_public_html(
                 path,
                 headers={
                     "Host": host_header,
-                    "User-Agent": "Listen-Read/0.1",
+                    "User-Agent": "Lazyreader/0.1",
                     "Accept": "text/html,application/xhtml+xml",
                     "Accept-Encoding": "identity",
                 },
@@ -134,7 +140,9 @@ def fetch_public_html(
             if response.status in {301, 302, 303, 307, 308}:
                 location = response.getheader("Location")
                 if not location:
-                    raise SourceAcquisitionError("Source redirect has no Location header.")
+                    raise SourceAcquisitionError(
+                        "Source redirect has no Location header."
+                    )
                 if redirect == MAX_REDIRECTS:
                     raise SourceAcquisitionError("Source exceeded the redirect limit.")
                 current = urljoin(current, location)
@@ -206,8 +214,8 @@ class DefuddleAdapter:
         except FileNotFoundError as exc:
             raise MissingDefuddleError(
                 "The local Defuddle CLI is required for URL acquisition "
-                "(`defuddle parse <url> --md`). Run `listen-read doctor` to "
-                "install the pinned app-owned copy; Listen Read will not silently "
+                "(`defuddle parse <url> --md`). Run `lazyreader doctor` to "
+                "install the pinned app-owned copy; Lazyreader will not silently "
                 "modify your global npm installation."
             ) from exc
         except subprocess.TimeoutExpired as exc:
@@ -217,7 +225,9 @@ class DefuddleAdapter:
 
     def acquire(self, url: str) -> AcquiredDocument:
         if not url.startswith(("https://", "http://")):
-            raise SourceAcquisitionError("Defuddle requires an http:// or https:// URL.")
+            raise SourceAcquisitionError(
+                "Defuddle requires an http:// or https:// URL."
+            )
 
         version_result = self._run((self._executable, "--version"))
         if version_result.returncode != 0:

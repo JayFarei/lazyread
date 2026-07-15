@@ -14,8 +14,8 @@ from .runtime import Runtime
 
 FALLBACK_SHELL = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>Listen Read</title></head>
-<body data-article-id="{article_id}"><main id="app"><h1>Listen Read</h1>
+<title>Lazyreader</title></head>
+<body data-article-id="{article_id}"><main id="app"><h1>Lazyreader</h1>
 <p>The web application is loading.</p></main></body></html>"""
 
 
@@ -42,16 +42,35 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._json(200, {"status": "ok", "version": __version__})
             elif parsed.path == "/api/articles":
                 include_trashed = parse_qs(parsed.query).get("include_trashed") == ["1"]
-                self._json(200, {"articles": self.server.runtime.list_articles(include_trashed=include_trashed)})
+                self._json(
+                    200,
+                    {
+                        "articles": self.server.runtime.list_articles(
+                            include_trashed=include_trashed
+                        )
+                    },
+                )
             elif parsed.path == "/api/storage":
                 self._json(200, {"storage": self.server.runtime.storage()})
             elif len(parts) == 3 and parts[:2] == ["api", "articles"]:
                 self._json(200, self.server.runtime.get_article(parts[2]))
-            elif len(parts) == 4 and parts[:2] == ["api", "articles"] and parts[3] == "timings":
+            elif (
+                len(parts) == 4
+                and parts[:2] == ["api", "articles"]
+                and parts[3] == "timings"
+            ):
                 self._timings(parts[2])
-            elif len(parts) == 4 and parts[:2] == ["api", "articles"] and parts[3] == "audio":
+            elif (
+                len(parts) == 4
+                and parts[:2] == ["api", "articles"]
+                and parts[3] == "audio"
+            ):
                 self._audio(parts[2])
-            elif len(parts) == 4 and parts[:2] == ["api", "articles"] and parts[3] == "events":
+            elif (
+                len(parts) == 4
+                and parts[:2] == ["api", "articles"]
+                and parts[3] == "events"
+            ):
                 self._events(parts[2], parse_qs(parsed.query))
             elif parsed.path.startswith("/assets/"):
                 self._static(parsed.path.removeprefix("/"))
@@ -65,7 +84,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 self._json(404, {"error": "not_found"})
         except KeyError as error:
-            self._json(404, {"error": "article_not_found", "article_id": str(error.args[0])})
+            self._json(
+                404, {"error": "article_not_found", "article_id": str(error.args[0])}
+            )
         except (ValueError, json.JSONDecodeError) as error:
             self._json(400, {"error": "invalid_request", "message": str(error)})
 
@@ -89,7 +110,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                         prepared_document=body.get("document"),
                     )
                 else:
-                    created = self.server.runtime.submit_source(source_url, title=body.get("title"))
+                    created = self.server.runtime.submit_source(
+                        source_url, title=body.get("title")
+                    )
                 self._json(201, created)
             elif len(parts) == 4 and parts[:2] == ["api", "articles"]:
                 action = parts[3]
@@ -112,7 +135,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 self._json(404, {"error": "not_found"})
         except KeyError as error:
-            self._json(404, {"error": "article_not_found", "article_id": str(error.args[0])})
+            self._json(
+                404, {"error": "article_not_found", "article_id": str(error.args[0])}
+            )
         except (ValueError, json.JSONDecodeError) as error:
             self._json(400, {"error": "invalid_request", "message": str(error)})
 
@@ -127,7 +152,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 self._json(404, {"error": "not_found"})
         except KeyError as error:
-            self._json(404, {"error": "article_not_found", "article_id": str(error.args[0])})
+            self._json(
+                404, {"error": "article_not_found", "article_id": str(error.args[0])}
+            )
         except ValueError as error:
             self._json(409, {"error": "conflict", "message": str(error)})
 
@@ -136,16 +163,29 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         parts = [part for part in urlsplit(self.path).path.split("/") if part]
         try:
-            if len(parts) == 4 and parts[:2] == ["api", "articles"] and parts[3] == "highlights":
+            if (
+                len(parts) == 4
+                and parts[:2] == ["api", "articles"]
+                and parts[3] == "highlights"
+            ):
                 body = self._body()
                 highlights = body.get("highlights")
                 if not isinstance(highlights, list):
                     raise ValueError("highlights must be an array")
-                self._json(200, {"highlights": self.server.runtime.replace_highlights(parts[2], highlights)})
+                self._json(
+                    200,
+                    {
+                        "highlights": self.server.runtime.replace_highlights(
+                            parts[2], highlights
+                        )
+                    },
+                )
             else:
                 self._json(404, {"error": "not_found"})
         except KeyError as error:
-            self._json(404, {"error": "article_not_found", "article_id": str(error.args[0])})
+            self._json(
+                404, {"error": "article_not_found", "article_id": str(error.args[0])}
+            )
         except (ValueError, json.JSONDecodeError) as error:
             self._json(400, {"error": "invalid_request", "message": str(error)})
 
@@ -157,7 +197,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def _guard_request(self, *, write: bool = False) -> bool:
         host = urlsplit(f"//{self.headers.get('Host', '')}").hostname or ""
-        trusted_host = host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".ts.net")
+        trusted_host = host in {"localhost", "127.0.0.1", "::1"} or host.endswith(
+            ".ts.net"
+        )
         if not trusted_host:
             self._json(421, {"error": "untrusted_host"})
             return False
@@ -219,7 +261,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                 return
         length = end - start + 1
         self.send_response(status)
-        self.send_header("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
+        self.send_header(
+            "Content-Type",
+            mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+        )
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(length))
         if status == HTTPStatus.PARTIAL_CONTENT:
@@ -240,7 +285,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         snapshot = self.server.runtime.snapshot(article_id)
         cursor = int(
             self.headers.get(
-                "Last-Event-ID", query.get("last_event_id", query.get("since", ["0"]))[0]
+                "Last-Event-ID",
+                query.get("last_event_id", query.get("since", ["0"]))[0],
             )
         )
         once = query.get("once") == ["1"]
@@ -260,7 +306,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             for event in events:
                 cursor = event["id"]
                 if event["event"] == "job":
-                    self._sse(cursor, "progress", self.server.runtime.snapshot(article_id))
+                    self._sse(
+                        cursor, "progress", self.server.runtime.snapshot(article_id)
+                    )
                 else:
                     self._sse(cursor, event["event"], event["data"])
             if events:
@@ -292,17 +340,25 @@ class RequestHandler(BaseHTTPRequestHandler):
         if root.resolve() not in requested.parents or not requested.is_file():
             self._json(404, {"error": "asset_not_found"})
             return
-        content_type = mimetypes.guess_type(requested.name)[0] or "application/octet-stream"
+        content_type = (
+            mimetypes.guess_type(requested.name)[0] or "application/octet-stream"
+        )
         self._bytes(200, requested.read_bytes(), content_type)
 
     def _json(self, status: int, data: dict) -> None:
-        self._bytes(status, json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode(), "application/json")
+        self._bytes(
+            status,
+            json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode(),
+            "application/json",
+        )
 
     def _bytes(self, status: int, data: bytes, content_type: str) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store" if "json" in content_type else "no-cache")
+        self.send_header(
+            "Cache-Control", "no-store" if "json" in content_type else "no-cache"
+        )
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
@@ -323,7 +379,9 @@ def _find_web_root(runtime: Runtime) -> Path | None:
     candidates = [runtime.settings.web_dir]
     package_web = Path(__file__).parent / "web"
     candidates.extend((package_web, Path.cwd() / "web" / "dist"))
-    return next((path for path in candidates if path and (path / "index.html").is_file()), None)
+    return next(
+        (path for path in candidates if path and (path / "index.html").is_file()), None
+    )
 
 
 def create_server(runtime: Runtime, *, host: str, port: int) -> RuntimeHTTPServer:

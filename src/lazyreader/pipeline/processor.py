@@ -14,8 +14,8 @@ import wave
 
 from .acquisition import AcquiredDocument, SourceAcquisitionError, acquire_markdown
 from .documents import DocumentPipeline, PreparedDocument, ScientificPolicy
-from listen_read.worker.protocol import NarrationRequest, NarrationWorker
-from listen_read.worker.validation import (
+from lazyreader.worker.protocol import NarrationRequest, NarrationWorker
+from lazyreader.worker.validation import (
     NarrationTiming,
     TimingBounds,
     validate_timings,
@@ -204,7 +204,9 @@ class ArticleProcessor:
                         "resumable": bool(event.payload.get("retryable", False)),
                     },
                 )
-                raise ArticleProcessingError(str(event.payload.get("message", "Worker failed")))
+                raise ArticleProcessingError(
+                    str(event.payload.get("message", "Worker failed"))
+                )
             elif event.type == "validation_completed":
                 worker_validated = bool(event.payload.get("valid", False))
             elif event.type == "worker_completed":
@@ -259,7 +261,9 @@ class ArticleProcessor:
                 )
                 if isinstance(exc, ArticleProcessingError):
                     raise
-                raise ArticleProcessingError("Worker timing validation failed.") from exc
+                raise ArticleProcessingError(
+                    "Worker timing validation failed."
+                ) from exc
             result = self._publish_fake_artifacts(
                 article_id, article_dir, completion, timing_records, request
             )
@@ -345,7 +349,9 @@ class ArticleProcessor:
     def _acquire(self, source_path: Path, source_url: str | None) -> AcquiredDocument:
         markdown = source_path.read_text() if source_path.exists() else ""
         if markdown.strip():
-            return acquire_markdown(markdown, **({"source_url": source_url} if source_url else {}))
+            return acquire_markdown(
+                markdown, **({"source_url": source_url} if source_url else {})
+            )
         if source_url and self._source_adapter:
             acquired = self._source_adapter.acquire(source_url)
             _atomic_bytes(source_path, acquired.markdown.encode("utf-8"))
@@ -364,9 +370,7 @@ class ArticleProcessor:
     ) -> ArticleProcessingResult:
         duration = float(completion["duration_seconds"])
         sample_rate = 8_000
-        descriptor, temporary = tempfile.mkstemp(
-            prefix=".audio.wav.", dir=article_dir
-        )
+        descriptor, temporary = tempfile.mkstemp(prefix=".audio.wav.", dir=article_dir)
         os.close(descriptor)
         try:
             with wave.open(temporary, "wb") as audio:
