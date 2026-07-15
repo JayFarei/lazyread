@@ -56,7 +56,7 @@ def test_setup_is_idempotent_after_its_revision_marker_is_written(
     assert calls[0][:2] == ["npm", "ci"]
     assert calls[2][-2].endswith("--requirement")
     assert calls[2][-1].endswith("worker-requirements.lock")
-    assert repeated["app_version"] == "0.1.0"
+    assert repeated["app_version"] == "0.1.1"
     assert len(repeated["worker_lock_sha256"]) == 64
     assert len(repeated["defuddle_lock_sha256"]) == 64
     assert setup_plan(settings)["mlx_audio_revision"]

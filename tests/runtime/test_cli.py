@@ -192,7 +192,7 @@ def test_detached_server_becomes_healthy_and_records_its_pid(tmp_path: Path) -> 
         with urllib.request.urlopen(
             f"http://127.0.0.1:{port}/api/health", timeout=3
         ) as response:
-            assert json.loads(response.read()) == {"status": "ok", "version": "0.1.0"}
+            assert json.loads(response.read()) == {"status": "ok", "version": "0.1.1"}
     finally:
         if "pid" in started:
             os.kill(started["pid"], signal.SIGTERM)
