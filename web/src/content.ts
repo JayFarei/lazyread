@@ -38,16 +38,17 @@ export function attachWordTimings(root: HTMLElement, words: WordTiming[]): Map<n
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       const parent = node.parentElement;
-      if (!parent || parent.closest("pre, code, math, svg, [aria-hidden='true']") || !node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
+      if (!parent || parent.closest("math, svg, [aria-hidden='true']") || !node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     },
   });
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+  const wordToken = /^[\p{L}\p{N}_]+(?:[’'\-][\p{L}\p{N}_]+)*$/u;
   for (const node of nodes) {
     const fragment = document.createDocumentFragment();
-    for (const token of node.data.split(/(\s+)/)) {
-      if (!token || /^\s+$/.test(token)) { fragment.append(token); continue; }
+    for (const token of node.data.split(/([\p{L}\p{N}_]+(?:[’'\-][\p{L}\p{N}_]+)*)/gu)) {
+      if (!token || !wordToken.test(token)) { fragment.append(token); continue; }
       const span = document.createElement("span");
       span.className = "spoken-word";
       span.dataset.wordIndex = String(elements.length);
@@ -62,13 +63,18 @@ export function attachWordTimings(root: HTMLElement, words: WordTiming[]): Map<n
   const map = new Map<number, HTMLElement>();
   let cursor = 0;
   let previousIndex = 0;
+  const maxLookahead = 64;
   for (const [position, word] of words.entries()) {
     let index = position;
     if (word.displayWordId === null) {
       index = previousIndex;
     } else if (word.displayWordId !== undefined) {
       const target = normalize(word.text);
-      const match = elements.findIndex((element, candidate) => candidate >= cursor && normalize(element.textContent ?? "") === target);
+      const match = elements.findIndex((element, candidate) =>
+        candidate >= cursor &&
+        candidate <= cursor + maxLookahead &&
+        normalize(element.textContent ?? "") === target,
+      );
       if (match >= 0) { index = match; cursor = match + 1; previousIndex = match; }
       else index = previousIndex;
     }
