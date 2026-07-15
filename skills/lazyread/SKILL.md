@@ -7,10 +7,10 @@ description: Turn a URL, local Markdown file, or pasted Markdown into a durable 
 
 Produce an article in the user's single local Lazyread library. Preserve the source's meaning and structure. Use the companion `defuddle` skill for URL acquisition and source-quality judgment; use the runtime for deterministic storage, narration, progress, serving, and lifecycle.
 
-Use this command prefix until the package is published to PyPI:
+Use the published PyPI command:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyread lazyread
+uvx lazyread
 ```
 
 ## First use
@@ -20,7 +20,7 @@ Run `doctor`. If setup is incomplete, run `setup` without `--yes` and show the r
 Start or reuse the library:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyread lazyread serve --detach
+uvx lazyread serve --detach
 ```
 
 Do not start a per-article web server.
@@ -34,7 +34,7 @@ For a URL:
 3. Submit the inspected Markdown while retaining the source URL:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyread lazyread add \
+uvx lazyread add \
   --markdown /tmp/lazyread-<slug>.md --source-url '<url>' --json
 ```
 
@@ -56,7 +56,7 @@ When ready, verify in a real browser:
 If Tailscale was requested, inspect existing routes and add one scoped listener:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyread lazyread expose --https-port <unused-port>
+uvx lazyread expose --https-port <unused-port>
 ```
 
 Never use `tailscale serve reset` and never enable Funnel.
