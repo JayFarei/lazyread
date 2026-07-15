@@ -39,6 +39,7 @@
 
 * { box-sizing: border-box; }
 html { max-width: 100%; overflow-x: clip; scroll-behavior: smooth; }
+html.is-reader-tracking { scroll-behavior: auto; }
 body { min-width: 320px; min-height: 100vh; margin: 0; overflow-x: clip; background: var(--paper); color: var(--ink); transition: background 180ms, color 180ms; }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
@@ -192,7 +193,7 @@ dialog::backdrop { background: rgb(18 22 19 / 38%); backdrop-filter: blur(10px);
   .reader-prose { font-size: 19px; line-height: 1.67; }
   .reader-prose h2 { font-size: 35px; }
   .reader-prose :is(table, pre) { width: calc(100vw - 32px); max-width: calc(100vw - 32px); }
-  .reader-dock { bottom: 10px; }
+  .reader-dock { bottom: max(10px, env(safe-area-inset-bottom)); }
   .player-shell { width: 100%; padding: 11px; gap: 10px; border-radius: 24px; }
   .play-button { width: 48px; height: 48px; }
   .player-meta { margin-bottom: 7px; }
