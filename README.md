@@ -12,10 +12,11 @@ speech, synchronized word highlighting, auto-scroll, and saved highlights.
 Lazyread currently supports Apple Silicon Macs running macOS 14 or newer. It
 also needs Node.js 20.19+, FFmpeg 6+, and [UV](https://docs.astral.sh/uv/).
 
-Install the Lazyread skill in Codex, Claude Code, or another compatible agent:
+Install the Lazyread skill globally for Codex, Claude Code, and other agents
+that use the shared skills directory:
 
 ```sh
-npx skills add https://github.com/jayfarei/lazyread/
+npx skills add https://github.com/jayfarei/lazyread/ --global --agent universal claude-code --yes
 ```
 
 Restart your agent, then invoke the skill with a URL or Markdown file:
