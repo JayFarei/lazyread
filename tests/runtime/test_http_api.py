@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from lazyreader.config import Settings
-from lazyreader.runtime import Runtime
-from lazyreader.server import create_server
+from lazyread.config import Settings
+from lazyread.runtime import Runtime
+from lazyread.server import create_server
 
 
 def request(
@@ -187,7 +187,7 @@ def test_read_route_uses_embedded_shell_hook(tmp_path: Path) -> None:
         )
         html = response.read().decode()
         assert response.status == 200
-        assert "Lazyreader" in html
+        assert "Lazyread" in html
         assert f'data-article-id="{article["id"]}"' in html
         assert "fonts.googleapis.com" not in html
         assert "fonts.gstatic.com" not in html

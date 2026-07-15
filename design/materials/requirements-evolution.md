@@ -1,4 +1,4 @@
-# Lazyreader requirements evolution
+# Lazyread requirements evolution
 
 Purpose: show how the system requirements emerged through use, so future simplification does not accidentally remove hard-won behavior.
 
@@ -49,7 +49,7 @@ Purpose: show how the system requirements emerged through use, so future simplif
 
 ## Sources
 
-- [System plan](../lazyreader-system-plan.md)
+- [System plan](../lazyread-system-plan.md)
 - [Production findings](production-run-2026-07-14.md)
 - [Original research](../../../tts-reader-research-2026-07-13.md)
 - [Canonical Defuddle skill](https://github.com/kepano/obsidian-skills/blob/main/skills/defuddle/SKILL.md)

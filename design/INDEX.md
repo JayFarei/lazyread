@@ -1,12 +1,12 @@
-# Lazyreader — Design Index
+# Lazyread — Design Index
 
-Lazyreader is a Mac-first, local listening library in which an agent skill performs document-aware orchestration and a UVX-distributed runtime provides deterministic installation, narration, storage, serving, and lifecycle management.
+Lazyread is a Mac-first, local listening library in which an agent skill performs document-aware orchestration and a UVX-distributed runtime provides deterministic installation, narration, storage, serving, and lifecycle management.
 
 ---
 
 ## The plan
 
-**[lazyreader-system-plan.md](lazyreader-system-plan.md)** — The implementation-facing system plan. Start here.
+**[lazyread-system-plan.md](lazyread-system-plan.md)** — The implementation-facing system plan. Start here.
 
 The plan replaces one generated application per article with one managed runtime and a durable article library. It preserves the skill as a first-class product layer: the skill understands and enriches documents, while the runtime makes those decisions reproducible and operationally safe.
 
@@ -24,20 +24,20 @@ The plan replaces one generated application per article with one managed runtime
 
 ## Quick reference
 
-**“Why is the skill still necessary if there is a CLI?”** — See [Skill and runtime are complementary](lazyreader-system-plan.md#skill-and-runtime-are-complementary).
+**“Why is the skill still necessary if there is a CLI?”** — See [Skill and runtime are complementary](lazyread-system-plan.md#skill-and-runtime-are-complementary).
 
-**“What does the user install?”** — See [Distribution and installation](lazyreader-system-plan.md#distribution-and-installation).
+**“What does the user install?”** — See [Distribution and installation](lazyread-system-plan.md#distribution-and-installation).
 
-**“Who installs and unloads the local models?”** — See [Two-tier lifecycle](lazyreader-system-plan.md#two-tier-lifecycle).
+**“Who installs and unloads the local models?”** — See [Two-tier lifecycle](lazyread-system-plan.md#two-tier-lifecycle).
 
-**“How are Defuddle and scientific-paper cleanup handled?”** — See [Document pipeline](lazyreader-system-plan.md#document-pipeline).
+**“How are Defuddle and scientific-paper cleanup handled?”** — See [Document pipeline](lazyread-system-plan.md#document-pipeline).
 
-**“How does progress survive a refresh or agent handoff?”** — See [Persisted jobs and progress](lazyreader-system-plan.md#persisted-jobs-and-progress).
+**“How does progress survive a refresh or agent handoff?”** — See [Persisted jobs and progress](lazyread-system-plan.md#persisted-jobs-and-progress).
 
 **“How much time, memory, and disk does a long paper need?”** — See [production-run-2026-07-14.md](materials/production-run-2026-07-14.md).
 
-**“What happens when alignment or validation fails?”** — See [Validation and repair](lazyreader-system-plan.md#validation-and-repair).
+**“What happens when alignment or validation fails?”** — See [Validation and repair](lazyread-system-plan.md#validation-and-repair).
 
-**“How do we migrate the readers already generated?”** — See [Implementation sequence](lazyreader-system-plan.md#implementation-sequence).
+**“How do we migrate the readers already generated?”** — See [Implementation sequence](lazyread-system-plan.md#implementation-sequence).
 
-**“Which choices remain open?”** — See [Open decisions](lazyreader-system-plan.md#open-decisions).
+**“Which choices remain open?”** — See [Open decisions](lazyread-system-plan.md#open-decisions).

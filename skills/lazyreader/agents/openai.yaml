@@ -1,4 +1,0 @@
-interface:
-  display_name: "Lazyreader"
-  short_description: "Turn articles into synchronized local listening"
-  default_prompt: "Use $lazyreader to turn this URL or Markdown into a private synchronized listening article."

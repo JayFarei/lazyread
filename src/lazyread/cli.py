@@ -116,9 +116,9 @@ def _action_on_running_server(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="lazyreader", description="Local-first listening library"
+        prog="lazyread", description="Local-first listening library"
     )
-    parser.add_argument("--home", help="runtime home (or LAZYREADER_HOME)")
+    parser.add_argument("--home", help="runtime home (or LAZYREAD_HOME)")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -138,7 +138,7 @@ def _parser() -> argparse.ArgumentParser:
     )
 
     skill_install = commands.add_parser(
-        "install-skills", help="install Lazyreader and Defuddle skills"
+        "install-skills", help="install Lazyread and Defuddle skills"
     )
     skill_install.add_argument(
         "--target", action="append", default=[], help="skills root; repeatable"
@@ -388,7 +388,7 @@ def _detach(settings: Settings) -> dict:
     command = [
         sys.executable,
         "-m",
-        "lazyreader",
+        "lazyread",
         "--home",
         str(settings.home),
         "serve",

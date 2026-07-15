@@ -6,9 +6,9 @@ import subprocess
 
 import pytest
 
-from lazyreader.cli import main
-from lazyreader.config import Settings
-from lazyreader.setup import DEFUDDLE_VERSION, install_dependencies, setup_plan
+from lazyread.cli import main
+from lazyread.config import Settings
+from lazyread.setup import DEFUDDLE_VERSION, install_dependencies, setup_plan
 
 
 def test_setup_requires_explicit_confirmation_before_large_downloads(

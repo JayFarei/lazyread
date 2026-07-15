@@ -1,16 +1,16 @@
-# Lazyreader system plan
+# Lazyread system plan
 
 Status: revised after the 14 July 2026 long-paper production run  
 Scope: macOS on Apple Silicon, local-first, private by default
 
 ## Outcome
 
-A user invokes the Lazyreader skill with a URL or pasted Markdown and receives a stable article route in one local listening library. The article becomes readable shortly after extraction; narration progress appears in the article and library; the final track is locally generated, fully cached before playback, synchronized word by word, and available through localhost and optionally Tailscale.
+A user invokes the Lazyread skill with a URL or pasted Markdown and receives a stable article route in one local listening library. The article becomes readable shortly after extraction; narration progress appears in the article and library; the final track is locally generated, fully cached before playback, synchronized word by word, and available through localhost and optionally Tailscale.
 
 The product is distributed as two cooperating units:
 
-1. **Lazyreader skill** — judgment, source understanding, policy, orchestration, and final verification.
-2. **Lazyreader runtime** — deterministic installation, storage, local-model execution, job state, web serving, telemetry, and lifecycle.
+1. **Lazyread skill** — judgment, source understanding, policy, orchestration, and final verification.
+2. **Lazyread runtime** — deterministic installation, storage, local-model execution, job state, web serving, telemetry, and lifecycle.
 
 The runtime must not flatten the skill into `add <url>`. The skill is a load-bearing part of the product.
 
@@ -27,7 +27,7 @@ The runtime must not flatten the skill into `add <url>`. The skill is a load-bea
 
 ## Skill and runtime are complementary
 
-| Lazyreader skill owns | Runtime and CLI own |
+| Lazyread skill owns | Runtime and CLI own |
 |---|---|
 | Interpret the user invocation and source intent | System compatibility checks and actionable `doctor` output |
 | Choose URL, pasted Markdown, or local-file acquisition path | Install/update the Python package, static web assets, and runtime environment |
@@ -45,7 +45,7 @@ The runtime exposes a compact structured interface. The skill may call several c
 Illustrative flow:
 
 ```text
-$lazyreader <source>
+$lazyread <source>
   skill: acquire and inspect source
   skill: produce canonical display document + speech policy
   runtime: ensure/doctor
@@ -64,7 +64,7 @@ Agent skill                 Browser Add form                 Direct CLI
     │                              │                              │
     └──────── source / prepared document / policy ───────────────┘
                                    │
-                         Lazyreader runtime
+                         Lazyread runtime
                  health · version · queue · SSE · auth boundary
                     │              │                │
              document pipeline   library        narration worker
@@ -104,9 +104,9 @@ Internal modules should stay deep:
 Distribute the runtime as a Python application runnable with UVX:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader doctor
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader serve --detach
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader add --prepared /path/to/document.json
+uvx --from git+https://github.com/JayFarei/lazyread lazyread doctor
+uvx --from git+https://github.com/JayFarei/lazyread lazyread serve --detach
+uvx --from git+https://github.com/JayFarei/lazyread lazyread add --prepared /path/to/document.json
 ```
 
 Why UVX rather than copying Lavish's `npx -y` literally:
@@ -124,24 +124,24 @@ Borrow Lavish's operational shape—on-demand installation, detached server, hea
 The repository/release contains:
 
 ```text
-lazyreader/
+lazyread/
 ├── skills/
-│   ├── lazyreader/SKILL.md
+│   ├── lazyread/SKILL.md
 │   └── defuddle/SKILL.md      # pinned upstream companion skill
-├── src/lazyreader/          # Python CLI and runtime
+├── src/lazyread/          # Python CLI and runtime
 ├── web/dist/                 # prebuilt reader/library assets
 ├── migrations/
 ├── worker/                   # MLX narration worker
 └── pyproject.toml
 ```
 
-Host-specific installers place both versioned skills in the appropriate skills directory. The Lazyreader skill depends on the companion Defuddle skill for URL acquisition and on the versioned runtime contract for deterministic production. Pasted Markdown remains usable when URL extraction is unavailable.
+Host-specific installers place both versioned skills in the appropriate skills directory. The Lazyread skill depends on the companion Defuddle skill for URL acquisition and on the versioned runtime contract for deterministic production. Pasted Markdown remains usable when URL extraction is unavailable.
 
-The [canonical Defuddle skill](https://github.com/kepano/obsidian-skills/blob/main/skills/defuddle/SKILL.md) invokes a local Node CLI and recommends `npm install -g defuddle` when it is missing. For a portable Lazyreader release, installation must not silently mutate the user's global npm environment. The runtime should prefer a pinned, app-owned Defuddle installation under Application Support; a user-approved global installation can be adopted when compatible.
+The [canonical Defuddle skill](https://github.com/kepano/obsidian-skills/blob/main/skills/defuddle/SKILL.md) invokes a local Node CLI and recommends `npm install -g defuddle` when it is missing. For a portable Lazyread release, installation must not silently mutate the user's global npm environment. The runtime should prefer a pinned, app-owned Defuddle installation under Application Support; a user-approved global installation can be adopted when compatible.
 
 ### Compatibility contract
 
-Version one supports Apple Silicon Macs only. `lazyreader doctor` checks before downloading models:
+Version one supports Apple Silicon Macs only. `lazyread doctor` checks before downloading models:
 
 - macOS and arm64 architecture;
 - supported OS version;
@@ -173,7 +173,7 @@ This separation is mandatory for scientific and technical material. The display 
 - Prepared file: import directly with recorded provenance.
 - Browser/bare CLI baseline: use a documented source adapter and surface extraction warnings when agent review is unavailable.
 
-Defuddle is a local CLI dependency that fetches the target page over the network; it is not a local model and it does not require the `defuddle.md` hosted service. The upstream skill tells agents to install it globally with npm when missing. Lazyreader should instead pin its version and manage it in app-owned storage so extraction is reproducible and cleanup is honest.
+Defuddle is a local CLI dependency that fetches the target page over the network; it is not a local model and it does not require the `defuddle.md` hosted service. The upstream skill tells agents to install it globally with npm when missing. Lazyread should instead pin its version and manage it in app-owned storage so extraction is reproducible and cleanup is honest.
 
 The local Defuddle skill used for the 14 July paper currently differs from that upstream contract and calls the `defuddle.md` service. That production run therefore proves the downstream canonicalization and reader pipeline, but it does not prove output parity with the upstream Defuddle CLI. Add a comparison fixture before switching the production adapter.
 
@@ -248,8 +248,8 @@ The measured model load was roughly 1.4 seconds on the tested M4 Pro, while the 
 ## Storage and cache lifecycle
 
 ```text
-~/Library/Application Support/Lazyreader/
-├── lazyreader.sqlite
+~/Library/Application Support/Lazyread/
+├── lazyread.sqlite
 ├── articles/<article-id>/
 │   ├── source.md
 │   ├── document.json
@@ -402,7 +402,7 @@ Each milestone leaves a useful, testable product and preserves the checkpoint at
 
 - package the versioned skill and UVX runtime together;
 - add stable/beta model channels, signed/reproducible release process, upgrade/migration tests, install-size disclosure, privacy copy, and uninstall/cleanup;
-- acceptance: a fresh supported Mac can invoke `$lazyreader <url>`, approve the stated downloads, and receive one stable article route without manual dependency work.
+- acceptance: a fresh supported Mac can invoke `$lazyread <url>`, approve the stated downloads, and receive one stable article route without manual dependency work.
 
 ## Release acceptance criteria
 
@@ -429,7 +429,7 @@ Each milestone leaves a useful, testable product and preserves the checkpoint at
 
 ## Evidence
 
-- [Current Lazyreader skill](../SKILL.md)
+- [Current Lazyread skill](../SKILL.md)
 - [Canonical Defuddle skill](https://github.com/kepano/obsidian-skills/blob/main/skills/defuddle/SKILL.md)
 - [Lavish CLI/runtime prior art](https://github.com/kunchenguid/lavish-axi)
 - [Long-paper production findings](materials/production-run-2026-07-14.md)

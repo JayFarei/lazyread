@@ -1,11 +1,11 @@
-# Lazyreader
+# Lazyread
 
-Lazyreader turns URLs and Markdown into a private local listening library: readable article typography, natural on-device narration, exact word highlighting, complete-track preloading, progress, telemetry, and mobile controls in one durable app.
+Lazyread turns URLs and Markdown into a private local listening library: readable article typography, natural on-device narration, exact word highlighting, complete-track preloading, progress, telemetry, and mobile controls in one durable app.
 
 It is an early public release for **Apple Silicon Macs**. Text extraction and the web library are lightweight; natural narration uses MLX, Qwen3-TTS 1.7B CustomVoice, and Qwen3 ForcedAligner. Article content and finished audio stay on the Mac. URL extraction still accesses the source website.
 
 Prerequisites are macOS 14 or newer, Node.js 20.19+, FFmpeg 6+, and UV 0.5+.
-`lazyreader doctor` reports exact versions and Homebrew repair commands before
+`lazyread doctor` reports exact versions and Homebrew repair commands before
 setup changes anything. These small system tools are not installed silently;
 Defuddle, Python/MLX packages, and models are installed into app-owned storage.
 
@@ -14,26 +14,26 @@ Defuddle, Python/MLX packages, and models are installed into app-owned storage.
 The runtime is currently installed from GitHub through UVX:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader doctor
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader setup
+uvx --from git+https://github.com/JayFarei/lazyread lazyread doctor
+uvx --from git+https://github.com/JayFarei/lazyread lazyread setup
 ```
 
-The product, command, Python module, repository, and skill are all named
-`lazyreader`. The PyPI distribution is `lazyreader-local` because the
-`lazyreader` distribution name is owned by an unrelated project.
+The product, command, Python module, repository, skill, and PyPI distribution
+are all named `lazyread`. After the first release, the public entrypoint is simply
+`uvx lazyread`.
 
-`setup` first prints the compatibility and storage disclosure. The confirmed command installs pinned dependencies under `~/Library/Application Support/Lazyreader` and downloads about 5.4 GB of speech/alignment models:
+`setup` first prints the compatibility and storage disclosure. The confirmed command installs pinned dependencies under `~/Library/Application Support/Lazyread` and downloads about 5.4 GB of speech/alignment models:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader setup --yes
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader install-skills
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader serve --detach
+uvx --from git+https://github.com/JayFarei/lazyread lazyread setup --yes
+uvx --from git+https://github.com/JayFarei/lazyread lazyread install-skills
+uvx --from git+https://github.com/JayFarei/lazyread lazyread serve --detach
 ```
 
 Restart the agent host after installing skills, then invoke:
 
 ```text
-$lazyreader https://example.com/article
+$lazyread https://example.com/article
 ```
 
 The companion skill reviews Defuddle extraction before submitting the source. The browser also has a baseline URL/Markdown form at [http://127.0.0.1:4242/library](http://127.0.0.1:4242/library).
@@ -43,10 +43,10 @@ The companion skill reviews Defuddle extraction before submitting the source. Th
 Add a single tailnet-only listener without touching other Serve routes:
 
 ```sh
-uvx --from git+https://github.com/JayFarei/lazyreader lazyreader expose --https-port 7447
+uvx --from git+https://github.com/JayFarei/lazyread lazyread expose --https-port 7447
 ```
 
-Lazyreader never enables Funnel and never resets the machine's Tailscale Serve configuration.
+Lazyread never enables Funnel and never resets the machine's Tailscale Serve configuration.
 The Tailscale listener trusts the tailnet: every principal allowed to reach the
 Mac by its tailnet ACL can use the complete library API, including deletion.
 Use it only on a personal tailnet or restrict the device/port with Tailscale
@@ -54,7 +54,7 @@ ACLs. A future public multi-user release will add per-user pairing.
 
 ## What is persisted
 
-The library lives under `~/Library/Application Support/Lazyreader` unless `LAZYREADER_HOME` is set. SQLite holds catalog/job state; article folders hold source Markdown, display and speech projections, FLAC/WAV audio, timings, and telemetry. Delete moves an article to trash; purge is separate. Model and chunk storage are reported independently.
+The library lives under `~/Library/Application Support/Lazyread` unless `LAZYREAD_HOME` is set. SQLite holds catalog/job state; article folders hold source Markdown, display and speech projections, FLAC/WAV audio, timings, and telemetry. Delete moves an article to trash; purge is separate. Model and chunk storage are reported independently.
 
 The server survives independently of the heavy narration worker. Jobs run serially, persisted progress is replayed over SSE, interrupted work is recoverable, and the MLX process exits when its queue item finishes so it does not retain unified memory while idle.
 
@@ -86,8 +86,8 @@ npm audit --omit=dev
 Run the full app with deterministic silent narration for UI/integration work:
 
 ```sh
-LAZYREADER_HOME=/tmp/lazyreader-dev LAZYREADER_WORKER=fake \
-  PYTHONPATH=src uv run lazyreader serve --port 4246
+LAZYREAD_HOME=/tmp/lazyread-dev LAZYREAD_WORKER=fake \
+  PYTHONPATH=src uv run lazyread serve --port 4246
 ```
 
 The architecture and measured 10,068-word scientific-paper production run are documented in [`design/`](design/INDEX.md).

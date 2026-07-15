@@ -8,8 +8,8 @@ import time
 import urllib.request
 from pathlib import Path
 
-from lazyreader.cli import main
-from lazyreader.pipeline import DocumentPipeline, acquire_markdown
+from lazyread.cli import main
+from lazyread.pipeline import DocumentPipeline, acquire_markdown
 
 
 def invoke(home: Path, *args: str) -> tuple[int, str]:

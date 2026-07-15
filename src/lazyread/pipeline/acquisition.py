@@ -131,7 +131,7 @@ def fetch_public_html(
                 path,
                 headers={
                     "Host": host_header,
-                    "User-Agent": "Lazyreader/0.1",
+                    "User-Agent": "Lazyread/0.1",
                     "Accept": "text/html,application/xhtml+xml",
                     "Accept-Encoding": "identity",
                 },
@@ -214,8 +214,8 @@ class DefuddleAdapter:
         except FileNotFoundError as exc:
             raise MissingDefuddleError(
                 "The local Defuddle CLI is required for URL acquisition "
-                "(`defuddle parse <url> --md`). Run `lazyreader doctor` to "
-                "install the pinned app-owned copy; Lazyreader will not silently "
+                "(`defuddle parse <url> --md`). Run `lazyread doctor` to "
+                "install the pinned app-owned copy; Lazyread will not silently "
                 "modify your global npm installation."
             ) from exc
         except subprocess.TimeoutExpired as exc:

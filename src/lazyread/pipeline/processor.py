@@ -14,8 +14,8 @@ import wave
 
 from .acquisition import AcquiredDocument, SourceAcquisitionError, acquire_markdown
 from .documents import DocumentPipeline, PreparedDocument, ScientificPolicy
-from lazyreader.worker.protocol import NarrationRequest, NarrationWorker
-from lazyreader.worker.validation import (
+from lazyread.worker.protocol import NarrationRequest, NarrationWorker
+from lazyread.worker.validation import (
     NarrationTiming,
     TimingBounds,
     validate_timings,

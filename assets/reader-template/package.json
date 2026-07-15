@@ -1,5 +1,5 @@
 {
-  "name": "lazyreader-reader",
+  "name": "lazyread-reader",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "validate:audio": "node scripts/validate-audio.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "npm run content:prepare && tsc --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port __LAZYREADER_PORT__",
+    "preview": "vite preview --host 127.0.0.1 --port __LAZYREAD_PORT__",
     "test": "vitest run"
   },
   "dependencies": {

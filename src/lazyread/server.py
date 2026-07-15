@@ -14,8 +14,8 @@ from .runtime import Runtime
 
 FALLBACK_SHELL = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>Lazyreader</title></head>
-<body data-article-id="{article_id}"><main id="app"><h1>Lazyreader</h1>
+<title>Lazyread</title></head>
+<body data-article-id="{article_id}"><main id="app"><h1>Lazyread</h1>
 <p>The web application is loading.</p></main></body></html>"""
 
 

@@ -5,15 +5,15 @@ import threading
 import time
 from pathlib import Path
 
-from lazyreader.config import Settings
-from lazyreader.cli import main
-from lazyreader.dispatcher import SerialProcessingDispatcher
-from lazyreader.pipeline import ArticleProcessor
-from lazyreader.pipeline import DocumentPipeline, ScientificPolicy, acquire_markdown
-from lazyreader.runtime import Runtime
-from lazyreader.server import create_server
-from lazyreader.worker import FakeNarrationWorker
-from lazyreader.worker import WorkerEvent
+from lazyread.config import Settings
+from lazyread.cli import main
+from lazyread.dispatcher import SerialProcessingDispatcher
+from lazyread.pipeline import ArticleProcessor
+from lazyread.pipeline import DocumentPipeline, ScientificPolicy, acquire_markdown
+from lazyread.runtime import Runtime
+from lazyread.server import create_server
+from lazyread.worker import FakeNarrationWorker
+from lazyread.worker import WorkerEvent
 
 
 def fake_processor(_article_id: str) -> ArticleProcessor:
@@ -104,7 +104,7 @@ def test_cli_submission_uses_an_already_running_processing_server(
     thread.start()
     source = tmp_path / "cli.md"
     source.write_text("# CLI bridge\n\nThis must leave the queue.")
-    monkeypatch.setenv("LAZYREADER_PORT", str(server.server_port))
+    monkeypatch.setenv("LAZYREAD_PORT", str(server.server_port))
     output: list[str] = []
     try:
         code = main(

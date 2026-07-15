@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lazyreader.pipeline import DocumentPipeline, ScientificPolicy, acquire_markdown
+from lazyread.pipeline import DocumentPipeline, ScientificPolicy, acquire_markdown
 
 
 PAPER = """# A verifier

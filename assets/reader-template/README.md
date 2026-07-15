@@ -1,4 +1,4 @@
-# Lazyreader reader
+# Lazyread reader
 
 A private, local-first reader with fully preloaded local narration and synchronized word highlighting.
 
@@ -17,5 +17,5 @@ npm run build
 npm run preview
 ```
 
-The preview listens on `127.0.0.1:__LAZYREADER_PORT__`.
+The preview listens on `127.0.0.1:__LAZYREAD_PORT__`.
 
