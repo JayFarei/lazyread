@@ -28,6 +28,37 @@ On first use, Lazyread explains the local setup and asks before downloading
 about 5.4 GB of speech and alignment models. The skill then creates the article,
 waits for narration, verifies the reader, and returns a reusable local URL.
 
+## Models, cache, and wait times
+
+Lazyread installs two pinned MLX models into one shared cache for every article:
+
+- **Speech:** `mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16`
+- **Word alignment:** `mlx-community/Qwen3-ForcedAligner-0.6B-8bit`
+
+The models use about 5.4 GB; allow at least 8 GB of working disk space during
+setup. They download only on first-time setup or after the model cache is
+removed. Model revisions are pinned per Lazyread release so the same input
+remains reproducible.
+
+Narration is generated once and reused. Lazyread keeps temporary speech chunks
+so an interrupted job or alignment repair can resume without repeating valid
+speech generation. The finished FLAC audio and word timings are stored with the
+article. Each browser also downloads the complete finished track into its own
+Cache Storage before enabling Play; later listening is immediate and works
+offline in that browser.
+
+The readable article appears within seconds, while narration continues in the
+background. Generation time depends on article length, Mac hardware, and cache
+hits. On the tested M4 Pro:
+
+- the 1,145-word TRACE paper produced 9:38 of audio in 1:11;
+- a 10,068-word research paper produced 108:04 of audio in 70:16.
+
+The player may need a little longer to preload the finished track: about 13 MB
+for TRACE and 125 MB for the long paper. Another browser or device performs its
+own one-time preload. Run `uvx lazyread storage` to see the space used by
+articles, temporary chunks, and models.
+
 ## What you get
 
 - Natural speech generated locally on your Mac
