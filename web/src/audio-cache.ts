@@ -1,4 +1,13 @@
 export type DownloadProgress = { loaded: number; total: number; percent: number };
+type AudioCache = Pick<Cache, "match" | "put">;
+type AudioEnvironment = {
+  cacheStorage?: { open(name: string): Promise<AudioCache> };
+  fetcher?: typeof fetch;
+};
+
+// Keep the pre-release cache namespace so the product rename never redownloads
+// complete narration files that may be several gigabytes in aggregate.
+const AUDIO_CACHE_NAME = "listen-read-audio-v1";
 
 export function revisionedCacheKey(url: string, revision = "current"): string {
   const join = url.includes("?") ? "&" : "?";
@@ -9,15 +18,18 @@ export async function preloadCompleteAudio(
   url: string,
   revision: string,
   onProgress: (progress: DownloadProgress) => void,
+  environment: AudioEnvironment = {},
 ): Promise<Blob> {
-  if (!("caches" in globalThis)) {
-    const response = await fetch(url);
+  const cacheStorage = environment.cacheStorage ?? ("caches" in globalThis ? caches : undefined);
+  const fetcher = environment.fetcher ?? fetch;
+  if (!cacheStorage) {
+    const response = await fetcher(url);
     if (!response.ok) throw new Error("Narration audio is unavailable");
     const blob = await response.blob();
     onProgress({ loaded: blob.size, total: blob.size, percent: 100 });
     return blob;
   }
-  const cache = await caches.open("listen-read-audio-v1");
+  const cache = await cacheStorage.open(AUDIO_CACHE_NAME);
   const key = revisionedCacheKey(url, revision);
   const cached = await cache.match(key);
   if (cached) {
@@ -25,7 +37,7 @@ export async function preloadCompleteAudio(
     onProgress({ loaded: blob.size, total: blob.size, percent: 100 });
     return blob;
   }
-  const response = await fetch(url);
+  const response = await fetcher(url);
   if (!response.ok) throw new Error("Narration audio is unavailable");
   const total = Number(response.headers.get("content-length") ?? 0);
   if (!response.body) {

@@ -9,9 +9,9 @@ import time
 
 import pytest
 
-from listen_read.pipeline import DocumentPipeline, acquire_markdown
-from listen_read.worker import MlxTemplateWorkerAdapter, NarrationRequest
-from listen_read.worker.mlx_adapter import EVENT_PREFIX
+from lazyreader.pipeline import DocumentPipeline, acquire_markdown
+from lazyreader.worker import MlxTemplateWorkerAdapter, NarrationRequest
+from lazyreader.worker.mlx_adapter import EVENT_PREFIX, LEGACY_EVENT_PREFIX
 
 
 def make_request() -> NarrationRequest:
@@ -51,7 +51,12 @@ def test_mlx_adapter_materializes_legacy_input_and_runs_out_of_process(
             "alignerRevision": request.aligner_revision,
             "mlxAudioRevision": request.mlx_audio_revision,
             "words": [
-                {"index": index, "text": word.text, "start": index * 0.3, "end": (index + 1) * 0.3}
+                {
+                    "index": index,
+                    "text": word.text,
+                    "start": index * 0.3,
+                    "end": (index + 1) * 0.3,
+                }
                 for index, word in enumerate(
                     word for chunk in request.chunks for word in chunk.words
                 )
@@ -136,6 +141,12 @@ def test_mlx_adapter_translates_streamed_chunk_progress_to_stable_identity() -> 
     assert event.payload["chunk_id"] == request.chunks[1].id
     assert event.payload["cache_hit"] is True
 
+    legacy_event = MlxTemplateWorkerAdapter._progress_event(
+        request, line.replace(EVENT_PREFIX, LEGACY_EVENT_PREFIX, 1), 8
+    )
+    assert legacy_event is not None
+    assert legacy_event.sequence == 8
+
 
 def test_mlx_adapter_rejects_surplus_manifest_words(tmp_path: Path) -> None:
     script = tmp_path / "scripts" / "generate_audio.py"
@@ -147,8 +158,15 @@ def test_mlx_adapter_rejects_surplus_manifest_words(tmp_path: Path) -> None:
         output = Path(str(kwargs["cwd"])) / "public" / "audio"
         output.mkdir(parents=True)
         words = [
-            {"index": index, "text": word.text, "start": index * 0.1, "end": (index + 1) * 0.1}
-            for index, word in enumerate(word for chunk in request.chunks for word in chunk.words)
+            {
+                "index": index,
+                "text": word.text,
+                "start": index * 0.1,
+                "end": (index + 1) * 0.1,
+            }
+            for index, word in enumerate(
+                word for chunk in request.chunks for word in chunk.words
+            )
         ]
         words.append({"index": 99, "text": "surplus", "start": 0.4, "end": 0.5})
         (output / "timings.json").write_text(
@@ -166,7 +184,9 @@ def test_mlx_adapter_rejects_surplus_manifest_words(tmp_path: Path) -> None:
         )
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    events = list(MlxTemplateWorkerAdapter(project_root=tmp_path, runner=run).run(make_request()))
+    events = list(
+        MlxTemplateWorkerAdapter(project_root=tmp_path, runner=run).run(make_request())
+    )
 
     assert events[-1].type == "worker_failed"
 
@@ -192,7 +212,9 @@ def test_mlx_adapter_cancel_terminates_a_blocked_process_group(tmp_path: Path) -
     assert events[-1].type == "worker_failed"
 
 
-def test_mlx_adapter_latches_cancel_before_the_process_is_spawned(tmp_path: Path) -> None:
+def test_mlx_adapter_latches_cancel_before_the_process_is_spawned(
+    tmp_path: Path,
+) -> None:
     script = tmp_path / "sleep.py"
     script.write_text("import time\ntime.sleep(30)\n", encoding="utf-8")
     adapter = MlxTemplateWorkerAdapter(

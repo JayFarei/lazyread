@@ -195,9 +195,7 @@ class DocumentPipeline:
             provenance=acquired.provenance,
         )
 
-    def _diagnostics(
-        self, markdown: str, policy: ScientificPolicy
-    ) -> list[Diagnostic]:
+    def _diagnostics(self, markdown: str, policy: ScientificPolicy) -> list[Diagnostic]:
         diagnostics: list[Diagnostic] = []
         references = re.search(r"(?im)^#{1,6}\s+references\s*$", markdown)
         if references and not markdown[references.end() :].strip():
@@ -220,7 +218,9 @@ class DocumentPipeline:
                     {"figures": missing},
                 )
             )
-        if DISPLAY_MATH_PATTERN.search(markdown) or INLINE_MATH_PATTERN.search(markdown):
+        if DISPLAY_MATH_PATTERN.search(markdown) or INLINE_MATH_PATTERN.search(
+            markdown
+        ):
             diagnostics.append(
                 Diagnostic(
                     "equations_present",
@@ -311,7 +311,9 @@ class DocumentPipeline:
                 else ""
             )
             punctuation = re.search(r"([.!?]+[\]})\"'’”]*)", gap)
-            sentence_end = bool(punctuation or "\n" in gap or index == len(matched_words) - 1)
+            sentence_end = bool(
+                punctuation or "\n" in gap or index == len(matched_words) - 1
+            )
             suffix = punctuation.group(1) if punctuation else ""
             speech_words.append(
                 SpeechWord(
@@ -325,7 +327,9 @@ class DocumentPipeline:
             )
 
         chunks: list[SpeechChunk] = []
-        for ordinal, offset in enumerate(range(0, len(speech_words), self._max_chunk_words)):
+        for ordinal, offset in enumerate(
+            range(0, len(speech_words), self._max_chunk_words)
+        ):
             words = tuple(speech_words[offset : offset + self._max_chunk_words])
             chunk_text = " ".join(
                 f"{word.text}{word.sentence_suffix or ('.' if word.sentence_end else '')}"

@@ -6,12 +6,14 @@ import subprocess
 
 import pytest
 
-from listen_read.cli import main
-from listen_read.config import Settings
-from listen_read.setup import DEFUDDLE_VERSION, install_dependencies, setup_plan
+from lazyreader.cli import main
+from lazyreader.config import Settings
+from lazyreader.setup import DEFUDDLE_VERSION, install_dependencies, setup_plan
 
 
-def test_setup_requires_explicit_confirmation_before_large_downloads(tmp_path: Path) -> None:
+def test_setup_requires_explicit_confirmation_before_large_downloads(
+    tmp_path: Path,
+) -> None:
     output: list[str] = []
     code = main(
         ["--home", str(tmp_path / "home"), "--json", "setup"],
@@ -26,7 +28,9 @@ def test_setup_requires_explicit_confirmation_before_large_downloads(tmp_path: P
     assert not (tmp_path / "home" / "runtime" / "worker" / ".venv").exists()
 
 
-def test_setup_is_idempotent_after_its_revision_marker_is_written(tmp_path: Path) -> None:
+def test_setup_is_idempotent_after_its_revision_marker_is_written(
+    tmp_path: Path,
+) -> None:
     settings = Settings(home=tmp_path / "home")
     calls: list[list[str]] = []
 
@@ -84,9 +88,7 @@ def test_failed_upgrade_keeps_the_last_known_good_runtime(tmp_path: Path) -> Non
         return subprocess.CompletedProcess(command, 1, "", "network failed")
 
     with pytest.raises(OSError, match="MLX worker installation failed"):
-        install_dependencies(
-            settings, runner=run, download_models=False, force=True
-        )
+        install_dependencies(settings, runner=run, download_models=False, force=True)
 
     assert old_python.read_text(encoding="utf-8") == "old worker"
     assert old_defuddle.read_text(encoding="utf-8") == "old defuddle"

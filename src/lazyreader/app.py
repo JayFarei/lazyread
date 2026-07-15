@@ -24,7 +24,7 @@ def _template_source() -> Path:
     for candidate in (packaged, checkout):
         if (candidate / "scripts" / "generate_audio.py").is_file():
             return candidate
-    raise FileNotFoundError("Listen Read's narration worker template is missing")
+    raise FileNotFoundError("Lazyreader's narration worker template is missing")
 
 
 def _article_worker_project(home: Path, article_id: str) -> Path:
@@ -48,34 +48,51 @@ def create_runtime(
 ) -> tuple[Runtime, SerialProcessingDispatcher]:
     """Build the durable runtime and its serial, restart-safe processing queue."""
 
-    mode = (worker_mode or os.environ.get("LISTEN_READ_WORKER", "mlx")).casefold()
+    mode = (
+        worker_mode
+        or os.environ.get("LAZYREADER_WORKER")
+        or os.environ.get("LISTEN_READ_WORKER")
+        or "mlx"
+    ).casefold()
 
     def processor(article_id: str) -> ArticleProcessor:
         if mode == "fake":
             worker = FakeNarrationWorker()
         elif mode == "mlx":
             project = _article_worker_project(settings.home, article_id)
-            worker_python = settings.home / "runtime" / "worker" / ".venv" / "bin" / "python"
+            worker_python = (
+                settings.home / "runtime" / "worker" / ".venv" / "bin" / "python"
+            )
             environment = {
                 **os.environ,
                 "HF_HOME": str(settings.home / "cache" / "models"),
-                "LISTEN_READ_CHUNK_CACHE": str(settings.home / "cache" / "chunks"),
-                "LISTEN_READ_TTS_REVISION": TTS_REVISION,
-                "LISTEN_READ_ALIGNER_REVISION": ALIGNER_REVISION,
+                "LAZYREADER_CHUNK_CACHE": str(settings.home / "cache" / "chunks"),
+                "LAZYREADER_TTS_REVISION": TTS_REVISION,
+                "LAZYREADER_ALIGNER_REVISION": ALIGNER_REVISION,
             }
             worker = MlxTemplateWorkerAdapter(
                 project_root=project,
-                command=[str(worker_python), str(project / "scripts" / "generate_audio.py")],
+                command=[
+                    str(worker_python),
+                    str(project / "scripts" / "generate_audio.py"),
+                ],
                 environment=environment,
             )
         else:
-            raise ValueError("LISTEN_READ_WORKER must be 'mlx' or 'fake'")
+            raise ValueError("LAZYREADER_WORKER must be 'mlx' or 'fake'")
 
         managed_defuddle = (
-            settings.home / "runtime" / "defuddle" / "node_modules" / ".bin" / "defuddle"
+            settings.home
+            / "runtime"
+            / "defuddle"
+            / "node_modules"
+            / ".bin"
+            / "defuddle"
         )
         source_adapter = DefuddleAdapter(
-            executable=str(managed_defuddle) if managed_defuddle.is_file() else "defuddle"
+            executable=str(managed_defuddle)
+            if managed_defuddle.is_file()
+            else "defuddle"
         )
         return ArticleProcessor(
             worker=worker,

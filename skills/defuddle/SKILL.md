@@ -7,15 +7,24 @@ description: Extract clean markdown content from web pages using Defuddle CLI, r
 
 Use Defuddle CLI to extract clean readable content from web pages. Prefer over WebFetch for standard web pages — it removes navigation, ads, and clutter, reducing token usage.
 
-When installed with Listen Read, use its app-owned pinned binary rather than a
+When installed with Lazyreader, use its app-owned pinned binary rather than a
 global npm package:
 
 ```bash
-DEFUDDLE_BIN="${LISTEN_READ_HOME:-$HOME/Library/Application Support/Listen Read}/runtime/defuddle/node_modules/.bin/defuddle"
+if [ -n "${LAZYREADER_HOME:-}" ]; then
+  LAZYREADER_DATA_HOME="$LAZYREADER_HOME"
+elif [ -n "${LISTEN_READ_HOME:-}" ]; then
+  LAZYREADER_DATA_HOME="$LISTEN_READ_HOME"
+elif [ -d "$HOME/Library/Application Support/Lazyreader" ]; then
+  LAZYREADER_DATA_HOME="$HOME/Library/Application Support/Lazyreader"
+else
+  LAZYREADER_DATA_HOME="$HOME/Library/Application Support/Listen Read"
+fi
+DEFUDDLE_BIN="$LAZYREADER_DATA_HOME/runtime/defuddle/node_modules/.bin/defuddle"
 ```
 
 If that path is absent, use `command -v defuddle` when an existing installation
-is available. Otherwise run the Listen Read `setup` disclosure flow; do not
+is available. Otherwise run the Lazyreader `setup` disclosure flow; do not
 silently install a global npm package.
 
 ## Usage

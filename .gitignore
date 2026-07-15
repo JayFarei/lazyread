@@ -12,6 +12,6 @@ build/
 dist/
 !web/dist/
 !web/dist/**
-.listen-read/
+.lazyreader/
 tmp/
 .opentraces/

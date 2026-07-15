@@ -1,5 +1,5 @@
 {
-  "skill_name": "listen-read",
+  "skill_name": "lazyreader",
   "evals": [
     {
       "id": 1,
@@ -14,7 +14,7 @@
     },
     {
       "id": 2,
-      "prompt": "Listen Read this pasted Markdown plan. Keep the headings and checklist formatting, make it work beautifully on my iPhone, and keep everything local: # Launch plan\n\n## Before launch\n- [ ] Verify backups\n- [ ] Brief support\n\n## Launch\nShip at 10:00 and monitor errors for an hour.",
+      "prompt": "Lazyreader this pasted Markdown plan. Keep the headings and checklist formatting, make it work beautifully on my iPhone, and keep everything local: # Launch plan\n\n## Before launch\n- [ ] Verify backups\n- [ ] Brief support\n\n## Launch\nShip at 10:00 and monitor errors for an hour.",
       "expected_output": "A mobile reader preserving the supplied Markdown structure, with local natural narration and liquid-glass playback controls.",
       "files": [],
       "expectations": [

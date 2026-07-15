@@ -4,15 +4,17 @@ from pathlib import Path
 
 import pytest
 
-from listen_read.config import Settings
-from listen_read.runtime import Runtime
+from lazyreader.config import Settings
+from lazyreader.runtime import Runtime
 
 
 def test_restart_marks_in_flight_jobs_interrupted_and_resumable(tmp_path: Path) -> None:
     settings = Settings(home=tmp_path / "home")
     first = Runtime(settings)
     article = first.submit_markdown("# Recovery\n\nA body.")["article"]
-    first.transition_job(article["id"], "narrating", phase="narrating", completed=12, total=40)
+    first.transition_job(
+        article["id"], "narrating", phase="narrating", completed=12, total=40
+    )
     first.close()
 
     restarted = Runtime(settings)
@@ -26,7 +28,9 @@ def test_restart_marks_in_flight_jobs_interrupted_and_resumable(tmp_path: Path) 
         restarted.close()
 
 
-def test_submission_notifies_an_injected_pipeline_without_loading_a_model(tmp_path: Path) -> None:
+def test_submission_notifies_an_injected_pipeline_without_loading_a_model(
+    tmp_path: Path,
+) -> None:
     class FakeDispatcher:
         def __init__(self) -> None:
             self.calls: list[tuple[str, Path]] = []
@@ -43,11 +47,17 @@ def test_submission_notifies_an_injected_pipeline_without_loading_a_model(tmp_pa
         runtime.close()
 
 
-def test_restart_recovers_text_ready_jobs_instead_of_stranding_them(tmp_path: Path) -> None:
+def test_restart_recovers_text_ready_jobs_instead_of_stranding_them(
+    tmp_path: Path,
+) -> None:
     settings = Settings(home=tmp_path / "home")
     first = Runtime(settings)
-    article_id = first.submit_markdown("# Recovery\n\nText is already readable.")["article"]["id"]
-    first.transition_job(article_id, "text_ready", phase="text_ready", completed=0, total=2)
+    article_id = first.submit_markdown("# Recovery\n\nText is already readable.")[
+        "article"
+    ]["id"]
+    first.transition_job(
+        article_id, "text_ready", phase="text_ready", completed=0, total=2
+    )
     first.close()
 
     restarted = Runtime(settings)
@@ -61,7 +71,9 @@ def test_purge_keeps_the_catalog_entry_when_file_deletion_fails(
     tmp_path: Path, monkeypatch
 ) -> None:
     runtime = Runtime(Settings(home=tmp_path / "home"))
-    article_id = runtime.submit_markdown("# Keep catalog\n\nDeletion will fail.")["article"]["id"]
+    article_id = runtime.submit_markdown("# Keep catalog\n\nDeletion will fail.")[
+        "article"
+    ]["id"]
     runtime.trash(article_id)
 
     def cannot_remove(
@@ -71,7 +83,7 @@ def test_purge_keeps_the_catalog_entry_when_file_deletion_fails(
             return
         raise PermissionError("article directory is not removable")
 
-    monkeypatch.setattr("listen_read.runtime.shutil.rmtree", cannot_remove)
+    monkeypatch.setattr("lazyreader.runtime.shutil.rmtree", cannot_remove)
     try:
         with pytest.raises(PermissionError, match="not removable"):
             runtime.purge(article_id)

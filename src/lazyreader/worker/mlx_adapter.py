@@ -16,7 +16,8 @@ from .validation import NarrationTiming, TimingBounds, validate_timings
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
-EVENT_PREFIX = "LISTEN_READ_EVENT "
+EVENT_PREFIX = "LAZYREADER_EVENT "
+LEGACY_EVENT_PREFIX = "LISTEN_READ_EVENT "
 
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
@@ -241,10 +242,18 @@ class MlxTemplateWorkerAdapter:
     def _progress_event(
         request: NarrationRequest, line: str, sequence: int
     ) -> WorkerEvent | None:
-        if not line.startswith(EVENT_PREFIX):
+        prefix = next(
+            (
+                candidate
+                for candidate in (EVENT_PREFIX, LEGACY_EVENT_PREFIX)
+                if line.startswith(candidate)
+            ),
+            None,
+        )
+        if prefix is None:
             return None
         try:
-            payload = json.loads(line.removeprefix(EVENT_PREFIX))
+            payload = json.loads(line.removeprefix(prefix))
             ordinal = int(payload["ordinal"])
             chunk = request.chunks[ordinal]
         except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
@@ -274,7 +283,11 @@ class MlxTemplateWorkerAdapter:
             first = global_index
             for word in chunk.words:
                 words.append(
-                    {"index": global_index, "text": word.text, "chunkIndex": chunk.ordinal}
+                    {
+                        "index": global_index,
+                        "text": word.text,
+                        "chunkIndex": chunk.ordinal,
+                    }
                 )
                 global_index += 1
             chunks.append(
@@ -300,14 +313,10 @@ class MlxTemplateWorkerAdapter:
             "words": words,
             "chunks": chunks,
         }
-        _atomic_json(
-            self._project_root / "src" / "generated" / "article.json", payload
-        )
+        _atomic_json(self._project_root / "src" / "generated" / "article.json", payload)
 
     @staticmethod
-    def _verify_provenance(
-        request: NarrationRequest, manifest: dict[str, Any]
-    ) -> None:
+    def _verify_provenance(request: NarrationRequest, manifest: dict[str, Any]) -> None:
         expected = (
             request.voice,
             request.model_revision,
@@ -321,13 +330,17 @@ class MlxTemplateWorkerAdapter:
             manifest.get("mlxAudioRevision"),
         )
         if actual != expected:
-            raise ValueError("MLX manifest provenance does not match the pinned request")
+            raise ValueError(
+                "MLX manifest provenance does not match the pinned request"
+            )
 
     @staticmethod
     def _validate_manifest(request: NarrationRequest, manifest: dict[str, Any]):
         flat_words = tuple(word for chunk in request.chunks for word in chunk.words)
         if len(manifest["words"]) != len(flat_words):
-            raise ValueError("MLX manifest word count does not match the speech projection")
+            raise ValueError(
+                "MLX manifest word count does not match the speech projection"
+            )
         chunk_by_word = {
             word.id: chunk.id for chunk in request.chunks for word in chunk.words
         }
@@ -346,9 +359,7 @@ class MlxTemplateWorkerAdapter:
         # The legacy manifest has global timings but no per-chunk audio offsets.
         # Until the native worker writes them, final-track bounds remain the
         # conservative chunk bound and identity/monotonicity still gate publish.
-        bounds = {
-            chunk.id: TimingBounds(0.0, duration) for chunk in request.chunks
-        }
+        bounds = {chunk.id: TimingBounds(0.0, duration) for chunk in request.chunks}
         return validate_timings(
             timings,
             expected_words=flat_words,

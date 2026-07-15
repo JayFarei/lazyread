@@ -5,15 +5,15 @@ import threading
 import time
 from pathlib import Path
 
-from listen_read.config import Settings
-from listen_read.cli import main
-from listen_read.dispatcher import SerialProcessingDispatcher
-from listen_read.pipeline import ArticleProcessor
-from listen_read.pipeline import DocumentPipeline, ScientificPolicy, acquire_markdown
-from listen_read.runtime import Runtime
-from listen_read.server import create_server
-from listen_read.worker import FakeNarrationWorker
-from listen_read.worker import WorkerEvent
+from lazyreader.config import Settings
+from lazyreader.cli import main
+from lazyreader.dispatcher import SerialProcessingDispatcher
+from lazyreader.pipeline import ArticleProcessor
+from lazyreader.pipeline import DocumentPipeline, ScientificPolicy, acquire_markdown
+from lazyreader.runtime import Runtime
+from lazyreader.server import create_server
+from lazyreader.worker import FakeNarrationWorker
+from lazyreader.worker import WorkerEvent
 
 
 def fake_processor(_article_id: str) -> ArticleProcessor:
@@ -59,7 +59,11 @@ def test_serial_dispatcher_publishes_a_complete_ready_article(tmp_path: Path) ->
         assert (directory / "speech.json").is_file()
         assert (directory / "audio.wav").is_file()
         timings = json.loads((directory / "timings.json").read_text())
-        assert [word["text"] for word in timings["words"]][:3] == ["A", "listening", "test"]
+        assert [word["text"] for word in timings["words"]][:3] == [
+            "A",
+            "listening",
+            "test",
+        ]
         assert all(
             left["start"] <= right["start"]
             for left, right in zip(timings["words"], timings["words"][1:])
@@ -69,7 +73,9 @@ def test_serial_dispatcher_publishes_a_complete_ready_article(tmp_path: Path) ->
         runtime.close()
 
 
-def test_dispatcher_resumes_persisted_queued_jobs_when_server_starts(tmp_path: Path) -> None:
+def test_dispatcher_resumes_persisted_queued_jobs_when_server_starts(
+    tmp_path: Path,
+) -> None:
     settings = Settings(home=tmp_path / "home")
     first = Runtime(settings)
     article_id = first.submit_markdown("# Queued\n\nProcess me later.")["article"]["id"]
@@ -98,7 +104,7 @@ def test_cli_submission_uses_an_already_running_processing_server(
     thread.start()
     source = tmp_path / "cli.md"
     source.write_text("# CLI bridge\n\nThis must leave the queue.")
-    monkeypatch.setenv("LISTEN_READ_PORT", str(server.server_port))
+    monkeypatch.setenv("LAZYREADER_PORT", str(server.server_port))
     output: list[str] = []
     try:
         code = main(
@@ -108,7 +114,10 @@ def test_cli_submission_uses_an_already_running_processing_server(
         created = json.loads("".join(output))
 
         assert code == 0
-        assert wait_for_state(runtime, created["article"]["id"], "ready")["job"]["state"] == "ready"
+        assert (
+            wait_for_state(runtime, created["article"]["id"], "ready")["job"]["state"]
+            == "ready"
+        )
     finally:
         server.shutdown()
         server.server_close()
@@ -147,7 +156,9 @@ def test_cancelling_an_active_job_prevents_late_publication(tmp_path: Path) -> N
     runtime = Runtime(settings, dispatcher=dispatcher)
     dispatcher.bind(runtime)
     try:
-        article_id = runtime.submit_markdown("# Cancel me\n\nStop this job.")["article"]["id"]
+        article_id = runtime.submit_markdown("# Cancel me\n\nStop this job.")[
+            "article"
+        ]["id"]
         assert started.wait(timeout=3)
         assert runtime.cancel(article_id)["job"]["state"] == "cancelled"
         release.set()
@@ -169,7 +180,9 @@ def test_prepared_document_policy_survives_runtime_processing(tmp_path: Path) ->
     dispatcher.bind(runtime)
     prepared = DocumentPipeline().prepare(
         acquire_markdown("# Prepared\n\nSee ![system](figure.png)."),
-        ScientificPolicy(figure_descriptions={"system": "A careful spoken description."}),
+        ScientificPolicy(
+            figure_descriptions={"system": "A careful spoken description."}
+        ),
     )
     try:
         article_id = runtime.submit_markdown(
@@ -178,7 +191,9 @@ def test_prepared_document_policy_survives_runtime_processing(tmp_path: Path) ->
         )["article"]["id"]
         wait_for_state(runtime, article_id, "ready")
 
-        published = json.loads(runtime.artifact_path(article_id, "document.json").read_text())
+        published = json.loads(
+            runtime.artifact_path(article_id, "document.json").read_text()
+        )
         assert published["speech"]["policy"]["figure_descriptions"] == {
             "system": "A careful spoken description."
         }
@@ -188,7 +203,9 @@ def test_prepared_document_policy_survives_runtime_processing(tmp_path: Path) ->
         runtime.close()
 
 
-def test_trashing_an_active_job_waits_until_the_worker_releases_files(tmp_path: Path) -> None:
+def test_trashing_an_active_job_waits_until_the_worker_releases_files(
+    tmp_path: Path,
+) -> None:
     started = threading.Event()
     release = threading.Event()
 
@@ -198,7 +215,12 @@ def test_trashing_an_active_job_waits_until_the_worker_releases_files(tmp_path: 
             started.set()
             release.wait(timeout=3)
             chunk = request.chunks[0]
-            yield WorkerEvent(request.job_id, 1, "chunk_completed", {"chunk_id": chunk.id, "timings": []})
+            yield WorkerEvent(
+                request.job_id,
+                1,
+                "chunk_completed",
+                {"chunk_id": chunk.id, "timings": []},
+            )
 
     def processor(_article_id: str) -> ArticleProcessor:
         return ArticleProcessor(
@@ -214,12 +236,19 @@ def test_trashing_an_active_job_waits_until_the_worker_releases_files(tmp_path: 
     dispatcher.bind(runtime)
     result: list[dict] = []
     try:
-        article_id = runtime.submit_markdown("# Trash me\n\nStop safely.")["article"]["id"]
+        article_id = runtime.submit_markdown("# Trash me\n\nStop safely.")["article"][
+            "id"
+        ]
         assert started.wait(timeout=3)
-        trash_thread = threading.Thread(target=lambda: result.append(runtime.trash(article_id)))
+        trash_thread = threading.Thread(
+            target=lambda: result.append(runtime.trash(article_id))
+        )
         trash_thread.start()
         deadline = time.monotonic() + 3
-        while runtime.get_article(article_id)["job"]["state"] != "cancelled" and time.monotonic() < deadline:
+        while (
+            runtime.get_article(article_id)["job"]["state"] != "cancelled"
+            and time.monotonic() < deadline
+        ):
             time.sleep(0.01)
         release.set()
         trash_thread.join(timeout=3)
@@ -256,7 +285,9 @@ def test_trashing_a_queued_job_does_not_wait_for_the_active_job(tmp_path: Path) 
 
     def processor(article_id: str):
         processor_calls.append(article_id)
-        return BlockingProcessor() if len(processor_calls) == 1 else UnexpectedProcessor()
+        return (
+            BlockingProcessor() if len(processor_calls) == 1 else UnexpectedProcessor()
+        )
 
     settings = Settings(home=tmp_path / "home")
     dispatcher = SerialProcessingDispatcher(processor)
@@ -266,9 +297,13 @@ def test_trashing_a_queued_job_does_not_wait_for_the_active_job(tmp_path: Path) 
     errors: list[BaseException] = []
     trash_thread: threading.Thread | None = None
     try:
-        active_id = runtime.submit_markdown("# Active\n\nKeep the worker busy.")["article"]["id"]
+        active_id = runtime.submit_markdown("# Active\n\nKeep the worker busy.")[
+            "article"
+        ]["id"]
         assert started.wait(timeout=3)
-        queued_id = runtime.submit_markdown("# Queued\n\nTrash without waiting.")["article"]["id"]
+        queued_id = runtime.submit_markdown("# Queued\n\nTrash without waiting.")[
+            "article"
+        ]["id"]
 
         def trash_queued() -> None:
             try:
@@ -318,7 +353,9 @@ def test_url_acquisition_replaces_only_the_placeholder_title(tmp_path: Path) -> 
     try:
         source_url = "https://example.test/acquired"
         acquired_id = runtime.submit_source(source_url)["article"]["id"]
-        explicit_id = runtime.submit_source(source_url, title="Keep this title")["article"]["id"]
+        explicit_id = runtime.submit_source(source_url, title="Keep this title")[
+            "article"
+        ]["id"]
 
         assert wait_for_state(runtime, acquired_id, "ready")["article"]["title"] == (
             "Acquired article title"
@@ -334,7 +371,9 @@ def test_url_acquisition_replaces_only_the_placeholder_title(tmp_path: Path) -> 
 def test_restoring_a_cancelled_trashed_article_requeues_it(tmp_path: Path) -> None:
     runtime = Runtime(Settings(home=tmp_path / "home"))
     try:
-        article_id = runtime.submit_markdown("# Restore me\n\nContinue later.")["article"]["id"]
+        article_id = runtime.submit_markdown("# Restore me\n\nContinue later.")[
+            "article"
+        ]["id"]
 
         assert runtime.trash(article_id)["job"]["state"] == "cancelled"
         restored = runtime.restore(article_id)
@@ -353,7 +392,9 @@ def test_dispatcher_close_cancels_an_active_blocked_worker(tmp_path: Path) -> No
         def run(self, request):
             started.set()
             released.wait(timeout=30)
-            yield WorkerEvent(request.job_id, 0, "worker_failed", {"message": "cancelled"})
+            yield WorkerEvent(
+                request.job_id, 0, "worker_failed", {"message": "cancelled"}
+            )
 
         def cancel(self) -> None:
             released.set()

@@ -20,7 +20,7 @@ wheels = [
 ]
 
 [[package]]
-name = "listen-read"
+name = "lazyreader-local"
 version = "0.1.0"
 source = { editable = "." }
 

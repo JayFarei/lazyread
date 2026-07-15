@@ -5,6 +5,7 @@ import { articleMarkup, attachWordTimings, plainArticleText } from "./content";
 import { CleanupScope } from "./lifecycle";
 import { LibraryProgressStreams, newArticleDialogMarkup } from "./library";
 import { adjacentIndex, findWordAtTime, formatTime, getShortcut, sentenceAt, sentenceRanges, shouldHandleShortcut, toggleHighlight } from "./player";
+import { migratedStorageValue } from "./storage";
 import type { Article, AudioManifest, Highlight } from "./types";
 
 const api = new ApiClient();
@@ -34,7 +35,7 @@ const icon = (name: "library" | "sun" | "moon" | "source" | "play" | "pause" | "
 function shell(content: string, active: "library" | "reader"): string {
   return `<div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
     <header class="site-header">
-      <a class="brand" href="/library" data-link><span class="brand-mark"><i></i><i></i><i></i></span><span>Listen Read</span></a>
+      <a class="brand" href="/library" data-link><span class="brand-mark"><i></i><i></i><i></i></span><span>Lazyreader</span></a>
       <nav class="header-actions" aria-label="Site controls">
         ${active === "reader" ? `<a class="round-control liquid" href="/library" data-link aria-label="Open library">${icon("library")}</a>` : ""}
         <button class="round-control liquid" id="theme-toggle" type="button" aria-label="Use dark theme">${icon(document.documentElement.classList.contains("dark") ? "sun" : "moon")}</button>
@@ -45,7 +46,7 @@ function shell(content: string, active: "library" | "reader"): string {
 function setupShell(): void {
   document.querySelector("#theme-toggle")?.addEventListener("click", () => {
     const dark = document.documentElement.classList.toggle("dark");
-    localStorage.setItem("listen-read-theme", dark ? "dark" : "light");
+    localStorage.setItem("lazyreader-theme", dark ? "dark" : "light");
     const button = document.querySelector<HTMLButtonElement>("#theme-toggle");
     if (button) { button.innerHTML = icon(dark ? "sun" : "moon"); button.ariaLabel = dark ? "Use light theme" : "Use dark theme"; }
   });
@@ -84,7 +85,7 @@ function articleCard(article: Article): string {
 }
 
 async function renderLibrary(scope: CleanupScope): Promise<void> {
-  document.title = "Library · Listen Read";
+  document.title = "Library · Lazyreader";
   app.innerHTML = shell(`<main class="library-page">
     <section class="library-hero"><div><p class="eyebrow">Your private listening library</p><h1>Read with your ears.</h1><p>Articles become readable first. Natural local narration follows in the background.</p></div><button class="primary-button" id="new-article" type="button">New article</button></section>
     <section class="library-toolbar"><label><span>Search library</span><input id="library-search" type="search" placeholder="Title, author or source" /></label><label><span>Sort</span><select id="library-sort"><option value="recent">Most recent</option><option value="title">Title</option><option value="source">Source</option></select></label></section>
@@ -118,7 +119,7 @@ async function renderLibrary(scope: CleanupScope): Promise<void> {
     if (scope.disposed) return;
     paint();
     streams.sync(articles);
-  } catch (error) { if (scope.disposed) return; content.innerHTML = `<div class="error-state"><h2>Library unavailable</h2><p>${escape(error instanceof Error ? error.message : "Could not reach Listen Read")}</p><button class="secondary-button" id="retry-library">Try again</button></div>`; document.querySelector("#retry-library")?.addEventListener("click", () => void route()); }
+  } catch (error) { if (scope.disposed) return; content.innerHTML = `<div class="error-state"><h2>Library unavailable</h2><p>${escape(error instanceof Error ? error.message : "Could not reach Lazyreader")}</p><button class="secondary-button" id="retry-library">Try again</button></div>`; document.querySelector("#retry-library")?.addEventListener("click", () => void route()); }
 
   document.querySelector("#library-search")?.addEventListener("input", paint);
   document.querySelector("#library-sort")?.addEventListener("change", paint);
@@ -152,7 +153,7 @@ async function renderReader(id: string, scope: CleanupScope): Promise<void> {
   let article: Article;
   try { article = await api.getArticle(id); } catch (error) { if (scope.disposed) return; app.innerHTML = shell(`<main class="reader-page"><div class="error-state"><h1>Article unavailable</h1><p>${escape(error instanceof Error ? error.message : "Article not found")}</p><a href="/library" data-link class="secondary-button">Return to library</a></div></main>`, "reader"); setupShell(); bindLinks(); return; }
   if (scope.disposed) return;
-  document.title = `${article.title} · Listen Read`;
+  document.title = `${article.title} · Lazyreader`;
   const production = article.productionSeconds ? formatTime(article.productionSeconds) : undefined;
   const progress = article.progress;
   app.innerHTML = shell(`<main class="reader-page" id="top">
@@ -211,9 +212,9 @@ async function setupPlayer(article: Article, articleBody: HTMLElement, scope: Cl
   if (scope.disposed) return;
   const words = manifest.words; const wordElements = attachWordTimings(articleBody, words); const wordIndexes = [...new Set(words.map((word) => word.index))]; const paragraphs = [...articleBody.querySelectorAll<HTMLElement>("p, li, blockquote, h2, h3")].flatMap((block) => { const first = block.querySelector<HTMLElement>("[data-word-index]"); return first ? [Number(first.dataset.wordIndex)] : []; });
   const ranges = sentenceRanges(words); let activeIndex = words[0]?.index ?? 0; let activeElement: HTMLElement | null = null; let frame = 0; let blobUrl = ""; const undo: Array<() => void> = [];
-  const localHighlights = JSON.parse(localStorage.getItem(`listen-read-highlights:${article.id}`) ?? "[]") as Highlight[];
+  const localHighlights = JSON.parse(migratedStorageValue(localStorage, `lazyreader-highlights:${article.id}`, `listen-read-highlights:${article.id}`) ?? "[]") as Highlight[];
   let highlights: Highlight[] = article.highlights?.length ? article.highlights : localHighlights;
-  const saveHighlights = (): void => { localStorage.setItem(`listen-read-highlights:${article.id}`, JSON.stringify(highlights)); paintHighlights(); void api.saveHighlights(article.id, highlights).catch(() => { required("#copy-status").textContent = "Highlights remain on this browser; library sync will retry after the server reconnects."; }); };
+  const saveHighlights = (): void => { localStorage.setItem(`lazyreader-highlights:${article.id}`, JSON.stringify(highlights)); paintHighlights(); void api.saveHighlights(article.id, highlights).catch(() => { required("#copy-status").textContent = "Highlights remain on this browser; library sync will retry after the server reconnects."; }); };
   const paintHighlights = (): void => {
     articleBody.querySelectorAll(".is-saved").forEach((element) => element.classList.remove("is-saved"));
     highlights.forEach((highlight) => { for (let index = highlight.startIndex; index <= highlight.endIndex; index += 1) wordElements.get(index)?.classList.add("is-saved"); });
@@ -260,6 +261,7 @@ async function route(): Promise<void> {
   else await renderLibrary(scope);
 }
 
-if (localStorage.getItem("listen-read-theme") === "dark" || (!localStorage.getItem("listen-read-theme") && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark");
+const storedTheme = migratedStorageValue(localStorage, "lazyreader-theme", "listen-read-theme");
+if (storedTheme === "dark" || (!storedTheme && matchMedia("(prefers-color-scheme: dark)").matches)) document.documentElement.classList.add("dark");
 window.addEventListener("popstate", () => void route());
 void route();

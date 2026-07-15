@@ -4,8 +4,8 @@ import subprocess
 
 import pytest
 
-from listen_read.pipeline import acquisition
-from listen_read.pipeline import (
+from lazyreader.pipeline import acquisition
+from lazyreader.pipeline import (
     DefuddleAdapter,
     MissingDefuddleError,
     SourceAcquisitionError,
@@ -35,7 +35,9 @@ def test_defuddle_uses_declared_cli_contract_and_records_version() -> None:
         if command[-1] == "--version":
             return subprocess.CompletedProcess(command, 0, "defuddle 0.6.3\n", "")
         inputs.append(str(kwargs["input"]))
-        return subprocess.CompletedProcess(command, 0, "# Extracted\n\nUseful text.\n", "")
+        return subprocess.CompletedProcess(
+            command, 0, "# Extracted\n\nUseful text.\n", ""
+        )
 
     source = DefuddleAdapter(
         runner=run,
@@ -71,7 +73,7 @@ def test_missing_defuddle_has_actionable_app_owned_install_message() -> None:
 
     message = str(error.value)
     assert "defuddle parse <url> --md" in message
-    assert "listen-read doctor" in message
+    assert "lazyreader doctor" in message
     assert "global npm" in message
 
 
@@ -79,7 +81,9 @@ def test_defuddle_failure_includes_safe_diagnostic_without_page_content() -> Non
     def fail(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
         if command[-1] == "--version":
             return subprocess.CompletedProcess(command, 0, "0.6.3\n", "")
-        return subprocess.CompletedProcess(command, 1, "secret article text", "network timeout")
+        return subprocess.CompletedProcess(
+            command, 1, "secret article text", "network timeout"
+        )
 
     with pytest.raises(SourceAcquisitionError) as error:
         DefuddleAdapter(
@@ -103,7 +107,9 @@ def test_defuddle_rejects_private_and_loopback_sources_before_fetching() -> None
         return [(2, 1, 6, "", ("127.0.0.1", 80))]
 
     with pytest.raises(SourceAcquisitionError, match="refuses loopback"):
-        DefuddleAdapter(runner=run, resolver=private_resolver).acquire("http://localhost/admin")
+        DefuddleAdapter(runner=run, resolver=private_resolver).acquire(
+            "http://localhost/admin"
+        )
 
     assert calls == [["defuddle", "--version"]]
 

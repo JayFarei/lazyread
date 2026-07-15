@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from listen_read.pipeline import DocumentPipeline, ScientificPolicy, acquire_markdown
+from lazyreader.pipeline import DocumentPipeline, ScientificPolicy, acquire_markdown
 
 
 PAPER = """# A verifier
@@ -17,7 +17,9 @@ Repeat until convergence.
 """
 
 
-def test_preparation_preserves_display_and_builds_reproducible_speech_projection() -> None:
+def test_preparation_preserves_display_and_builds_reproducible_speech_projection() -> (
+    None
+):
     acquired = acquire_markdown(PAPER, title="A verifier")
     pipeline = DocumentPipeline(max_chunk_words=5)
 
@@ -29,9 +31,9 @@ def test_preparation_preserves_display_and_builds_reproducible_speech_projection
     assert first.speech.chunks == second.speech.chunks
     assert all(len(chunk.words) <= 5 for chunk in first.speech.chunks)
     assert len({word.id for word in first.display.words}) == len(first.display.words)
-    assert len({word.id for chunk in first.speech.chunks for word in chunk.words}) == sum(
-        len(chunk.words) for chunk in first.speech.chunks
-    )
+    assert len(
+        {word.id for chunk in first.speech.chunks for word in chunk.words}
+    ) == sum(len(chunk.words) for chunk in first.speech.chunks)
 
 
 def test_scientific_policy_exposes_flags_and_actionable_warnings() -> None:
@@ -47,7 +49,9 @@ def test_scientific_policy_exposes_flags_and_actionable_warnings() -> None:
     assert "equation" in prepared.speech.text
 
 
-def test_policy_and_figure_descriptions_change_projection_identity_not_display_identity() -> None:
+def test_policy_and_figure_descriptions_change_projection_identity_not_display_identity() -> (
+    None
+):
     acquired = acquire_markdown(PAPER)
     pipeline = DocumentPipeline()
 
@@ -55,14 +59,18 @@ def test_policy_and_figure_descriptions_change_projection_identity_not_display_i
     enriched = pipeline.prepare(
         acquired,
         ScientificPolicy(
-            figure_descriptions={"Accuracy chart": "A bar chart comparing verifier accuracy."}
+            figure_descriptions={
+                "Accuracy chart": "A bar chart comparing verifier accuracy."
+            }
         ),
     )
 
     assert enriched.display.document_id == baseline.display.document_id
     assert enriched.speech.projection_id != baseline.speech.projection_id
     assert "bar chart comparing verifier accuracy" in enriched.speech.text
-    assert "figure_description_missing" not in {item.code for item in enriched.diagnostics}
+    assert "figure_description_missing" not in {
+        item.code for item in enriched.diagnostics
+    }
 
 
 def test_prepared_document_round_trips_through_public_json_contract() -> None:

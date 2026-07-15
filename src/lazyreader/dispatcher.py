@@ -66,7 +66,7 @@ class SerialProcessingDispatcher:
         self._runtime = runtime
         self._thread = threading.Thread(
             target=self._run,
-            name="listen-read-processing",
+            name="lazyreader-processing",
             daemon=True,
         )
         self._thread.start()
@@ -134,7 +134,9 @@ class SerialProcessingDispatcher:
                 except KeyError:
                     # A queued article can be purged before the worker claims it.
                     continue
-                if current["article"]["status"] == "trashed" or current["job"]["state"] in {
+                if current["article"]["status"] == "trashed" or current["job"][
+                    "state"
+                ] in {
                     "ready",
                     "cancelled",
                 }:

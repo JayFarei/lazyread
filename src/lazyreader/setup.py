@@ -61,7 +61,11 @@ def setup_plan(settings: Settings) -> dict[str, Any]:
 
 def _check(result: subprocess.CompletedProcess[str], label: str) -> None:
     if result.returncode:
-        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        detail = (
+            result.stderr.strip()
+            or result.stdout.strip()
+            or f"exit {result.returncode}"
+        )
         raise OSError(f"{label} failed: {detail}")
 
 
@@ -77,7 +81,11 @@ def install_dependencies(
     settings.ensure_directories()
     runtime = settings.home / "runtime"
     marker = runtime / "setup.json"
-    expected = {key: value for key, value in setup_plan(settings).items() if key not in {"requires_confirmation", "note"}}
+    expected = {
+        key: value
+        for key, value in setup_plan(settings).items()
+        if key not in {"requires_confirmation", "note"}
+    }
     expected["app_version"] = __version__
     expected["worker_lock_sha256"] = _sha256(_packaged_file("worker-requirements.lock"))
     expected["defuddle_lock_sha256"] = _sha256(
@@ -87,7 +95,12 @@ def install_dependencies(
     defuddle_binary = runtime / "defuddle" / "node_modules" / ".bin" / "defuddle"
     worker_python = runtime / "worker" / ".venv" / "bin" / "python"
     models_present = any((settings.home / "cache" / "models").iterdir())
-    if marker.is_file() and worker_python.is_file() and defuddle_binary.is_file() and not force:
+    if (
+        marker.is_file()
+        and worker_python.is_file()
+        and defuddle_binary.is_file()
+        and not force
+    ):
         try:
             if json.loads(marker.read_text(encoding="utf-8")) == expected and (
                 not download_models or models_present
@@ -105,7 +118,8 @@ def install_dependencies(
     staged_python = staged_worker / ".venv" / "bin" / "python"
     try:
         shutil.copy2(
-            _packaged_file("defuddle-package/package.json"), staged_defuddle / "package.json"
+            _packaged_file("defuddle-package/package.json"),
+            staged_defuddle / "package.json",
         )
         shutil.copy2(
             _packaged_file("defuddle-package/package-lock.json"),
@@ -113,7 +127,14 @@ def install_dependencies(
         )
 
         result = runner(
-            ["npm", "ci", "--prefix", str(staged_defuddle), "--omit=dev", "--ignore-scripts"],
+            [
+                "npm",
+                "ci",
+                "--prefix",
+                str(staged_defuddle),
+                "--omit=dev",
+                "--ignore-scripts",
+            ],
             capture_output=True,
             text=True,
             check=False,
@@ -160,16 +181,19 @@ def install_dependencies(
             )
             _check(result, "model download")
 
-        staged_defuddle_binary = (
-            staged_defuddle / "node_modules" / ".bin" / "defuddle"
-        )
+        staged_defuddle_binary = staged_defuddle / "node_modules" / ".bin" / "defuddle"
         if not staged_python.is_file() or not staged_defuddle_binary.is_file():
-            raise OSError("staged dependency installation did not produce runnable binaries")
+            raise OSError(
+                "staged dependency installation did not produce runnable binaries"
+            )
 
         backups: list[tuple[Path, Path]] = []
         installed: list[Path] = []
         try:
-            for name, staged in (("defuddle", staged_defuddle), ("worker", staged_worker)):
+            for name, staged in (
+                ("defuddle", staged_defuddle),
+                ("worker", staged_worker),
+            ):
                 target = runtime / name
                 backup = runtime / f".{name}.previous"
                 shutil.rmtree(backup, ignore_errors=True)
