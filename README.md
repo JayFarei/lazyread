@@ -3,7 +3,10 @@
 Turn a URL or Markdown file into a private listening article with natural local
 speech, synchronized word highlighting, auto-scroll, and saved highlights.
 
-https://github.com/user-attachments/assets/886577bf-2b03-4c03-8e1c-3cbfb1bdafa2
+https://github.com/user-attachments/assets/df6f44ee-572a-4a08-a0d8-7d8acc78fb6b
+
+In 43 seconds: skip by paragraph, speed up from the keyboard, follow
+auto-scroll, save sentences, step word by word, and copy your highlights.
 
 ## Install
 
