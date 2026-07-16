@@ -26,6 +26,22 @@ On first use, Lazyread explains the local setup and asks before downloading
 about 5.4 GB of speech and alignment models. The skill then creates the article,
 waits for narration, verifies the reader, and returns a reusable local URL.
 
+## Update
+
+If you installed the skills with the command above, update both the skills and
+the Lazyread runtime with:
+
+```sh
+npx --yes skills update lazyread defuddle --global --yes
+uvx --refresh lazyread doctor
+```
+
+`npx skills` remembers the source of each installed skill and updates its
+managed copy and agent links in place. If Lazyread was installed as a persistent
+UV tool, run `uv tool upgrade --reinstall lazyread` instead of the `uvx` command.
+If the skills were installed by Lazyread itself, refresh those copies with
+`lazyread install-skills --force` instead of `npx skills update`.
+
 ## Models, cache, and wait times
 
 Lazyread installs two pinned MLX models into one shared cache for every article:
