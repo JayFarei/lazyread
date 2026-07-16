@@ -36,7 +36,8 @@ export type Shortcut =
   | { type: "undo" }
   | { type: "highlight"; previous: boolean }
   | { type: "paragraph"; direction: "next" | "previous" }
-  | { type: "word"; direction: "next" | "previous" };
+  | { type: "word"; direction: "next" | "previous" }
+  | { type: "speed"; direction: "up" | "down" };
 
 export function getShortcut(event: KeyboardEvent): Shortcut | null {
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
@@ -47,6 +48,7 @@ export function getShortcut(event: KeyboardEvent): Shortcut | null {
   if (key === "p") return { type: "paragraph", direction: event.shiftKey ? "previous" : "next" };
   if (key === "w") return { type: "word", direction: "next" };
   if (key === "b") return { type: "word", direction: "previous" };
+  if (key === "s") return { type: "speed", direction: event.shiftKey ? "down" : "up" };
   return null;
 }
 

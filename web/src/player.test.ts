@@ -25,6 +25,8 @@ describe("player seams", () => {
     expect(getShortcut(new KeyboardEvent("keydown", { key: "Enter" }))).toEqual({ type: "toggle" });
     expect(getShortcut(new KeyboardEvent("keydown", { key: "P", shiftKey: true }))).toEqual({ type: "paragraph", direction: "previous" });
     expect(getShortcut(new KeyboardEvent("keydown", { key: "w" }))).toEqual({ type: "word", direction: "next" });
+    expect(getShortcut(new KeyboardEvent("keydown", { key: "s" }))).toEqual({ type: "speed", direction: "up" });
+    expect(getShortcut(new KeyboardEvent("keydown", { key: "S", shiftKey: true }))).toEqual({ type: "speed", direction: "down" });
     expect(getShortcut(new KeyboardEvent("keydown", { key: " " }))).toBeNull();
   });
 
