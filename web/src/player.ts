@@ -13,6 +13,19 @@ export function findWordAtTime(words: WordTiming[], time: number): number {
   return found >= 0 && time <= words[found]!.end + 0.18 ? found : -1;
 }
 
+export function lastWordStartedBefore(words: WordTiming[], time: number): number {
+  if (!words.length || time < words[0]!.start) return -1;
+  let low = 0;
+  let high = words.length - 1;
+  let found = -1;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    if (words[middle]!.start <= time) { found = middle; low = middle + 1; }
+    else high = middle - 1;
+  }
+  return found;
+}
+
 export function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
@@ -23,7 +36,8 @@ export type Shortcut =
   | { type: "undo" }
   | { type: "highlight"; previous: boolean }
   | { type: "paragraph"; direction: "next" | "previous" }
-  | { type: "word"; direction: "next" | "previous" };
+  | { type: "word"; direction: "next" | "previous" }
+  | { type: "speed"; direction: "up" | "down" };
 
 export function getShortcut(event: KeyboardEvent): Shortcut | null {
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
@@ -34,6 +48,7 @@ export function getShortcut(event: KeyboardEvent): Shortcut | null {
   if (key === "p") return { type: "paragraph", direction: event.shiftKey ? "previous" : "next" };
   if (key === "w") return { type: "word", direction: "next" };
   if (key === "b") return { type: "word", direction: "previous" };
+  if (key === "s") return { type: "speed", direction: event.shiftKey ? "down" : "up" };
   return null;
 }
 

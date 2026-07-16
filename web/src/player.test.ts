@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { findWordAtTime, getShortcut, sentenceRanges, shouldHandleShortcut, toggleHighlight } from "./player";
+import { findWordAtTime, getShortcut, lastWordStartedBefore, sentenceRanges, shouldHandleShortcut, toggleHighlight } from "./player";
 
 const words = [
   { index: 0, text: "One", start: 0, end: 0.4 },
@@ -15,10 +15,18 @@ describe("player seams", () => {
     expect(findWordAtTime(words, 1.19)).toBe(-1);
   });
 
+  it("anchors to the last started word inside a silence gap", () => {
+    expect(lastWordStartedBefore(words, 1.19)).toBe(1);
+    expect(lastWordStartedBefore(words, 5)).toBe(3);
+    expect(lastWordStartedBefore(words, -0.1)).toBe(-1);
+  });
+
   it("maps navigation and playback keys without claiming Space", () => {
     expect(getShortcut(new KeyboardEvent("keydown", { key: "Enter" }))).toEqual({ type: "toggle" });
     expect(getShortcut(new KeyboardEvent("keydown", { key: "P", shiftKey: true }))).toEqual({ type: "paragraph", direction: "previous" });
     expect(getShortcut(new KeyboardEvent("keydown", { key: "w" }))).toEqual({ type: "word", direction: "next" });
+    expect(getShortcut(new KeyboardEvent("keydown", { key: "s" }))).toEqual({ type: "speed", direction: "up" });
+    expect(getShortcut(new KeyboardEvent("keydown", { key: "S", shiftKey: true }))).toEqual({ type: "speed", direction: "down" });
     expect(getShortcut(new KeyboardEvent("keydown", { key: " " }))).toBeNull();
   });
 

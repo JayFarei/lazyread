@@ -1,6 +1,20 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { attachWordTimings } from "./content";
+import { attachWordTimings, sanitizeArticle } from "./content";
+
+describe("sanitizeArticle", () => {
+  it("turns remote images into visible figure descriptions", () => {
+    const html = sanitizeArticle(`<p><img src="https://example.com/pic.png" alt="A person at a fork in the road."></p>`);
+    expect(html).not.toContain("<img");
+    expect(html).toContain(`class="figure-desc"`);
+    expect(html).toContain("A person at a fork in the road.");
+  });
+
+  it("drops remote images without a description and keeps local ones", () => {
+    expect(sanitizeArticle(`<p><img src="https://example.com/pic.png" alt=""></p>`)).toBe("<p></p>");
+    expect(sanitizeArticle(`<p><img src="/assets/pic.png" alt="Local figure"></p>`)).toContain("<img");
+  });
+});
 
 describe("attachWordTimings", () => {
   it("keeps display alignment when speech omits or inserts words", () => {
@@ -57,5 +71,45 @@ describe("attachWordTimings", () => {
 
     expect(words.map((word) => word.index)).toEqual([0, 0, 1]);
     expect(map.get(1)?.textContent).toBe("Recovery");
+  });
+
+  it("does not let a narrated figure description drag the cursor across later paragraphs", () => {
+    // Narration speaks alt text that has no DOM counterpart; its stopwords ("a",
+    // "path") also appear in later paragraphs and must not be matched there.
+    document.body.innerHTML = `<article id="body"><p>Normal Technology</p><p>The choice is a practical path forward and it continues.</p></article>`;
+    const root = document.querySelector<HTMLElement>("#body")!;
+    const alt = ["A", "person", "stands", "where", "a", "path", "divides"];
+    const words = [
+      { index: 0, text: "Normal", start: 0, end: 0.5, displayWordId: "dw-0" },
+      { index: 1, text: "Technology", start: 0.5, end: 1, displayWordId: "dw-1" },
+      ...alt.map((text, position) => ({ index: 2 + position, text, start: 1 + position, end: 1.5 + position, displayWordId: `dw-alt-${position}` })),
+      { index: 9, text: "The", start: 9, end: 9.5, displayWordId: "dw-9" },
+      { index: 10, text: "choice", start: 9.5, end: 10, displayWordId: "dw-10" },
+      { index: 11, text: "is", start: 10, end: 10.5, displayWordId: "dw-11" },
+    ];
+
+    attachWordTimings(root, words);
+
+    // Alt-text words all collapse onto the last real display word instead of
+    // stealing "a"/"path" from the following paragraph.
+    expect(words.map((word) => word.index)).toEqual([0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 3, 4]);
+  });
+
+  it("aligns narrated figure descriptions to their rendered figure card", () => {
+    document.body.innerHTML = `<article id="body"><p>Before figure</p><p><span class="figure-desc">A person stands</span></p><p>After it</p></article>`;
+    const root = document.querySelector<HTMLElement>("#body")!;
+    const words = ["Before", "figure", "A", "person", "stands", "After", "it"].map((text, index) => ({
+      index,
+      text,
+      start: index,
+      end: index + 0.5,
+      displayWordId: `dw-${index}`,
+    }));
+
+    const map = attachWordTimings(root, words);
+
+    expect(words.map((word) => word.index)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(map.get(3)?.textContent).toBe("person");
+    expect(map.get(5)?.textContent).toBe("After");
   });
 });
