@@ -161,7 +161,10 @@ dialog::backdrop { background: rgb(18 22 19 / 38%); backdrop-filter: blur(10px);
 .reader-prose :is(table, pre) { max-width: 100%; overflow-x: auto; }
 .reader-prose table { display: block; } .reader-prose th, .reader-prose td { padding: 9px 12px; border: 1px solid var(--line); text-align: left; }
 .reader-prose pre { padding: 16px; border-radius: 12px; background: var(--paper-raised); font: 11px/1.65 var(--font-mono); }
-.spoken-word { border-radius: .2em; cursor: pointer; transition: background 110ms, color 110ms; } .spoken-word.is-current { background: var(--accent-soft); color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft); } .spoken-word.is-saved { background: linear-gradient(transparent 53%, color-mix(in srgb, var(--highlight) 72%, transparent) 53%); }
+/* Highlight bands are trimmed to the glyphs: the reading font's inline box
+   carries tall ascent/descent metrics, so painting the full box (or its bottom
+   half) lands visibly below the letters. */
+.spoken-word { border-radius: .2em; cursor: pointer; transition: background 110ms, color 110ms; } .spoken-word.is-saved { background: linear-gradient(transparent 16%, color-mix(in srgb, var(--highlight) 62%, transparent) 16% 94%, transparent 94%); } .spoken-word.is-current { background: linear-gradient(transparent 8%, var(--accent-soft) 8% 97%, transparent 97%); color: var(--ink); }
 
 /* Player */
 .reader-dock { position: fixed; z-index: 50; right: 0; bottom: 18px; left: 0; display: flex; width: min(1180px, calc(100% - 72px)); margin: auto; align-items: end; justify-content: center; pointer-events: none; }
