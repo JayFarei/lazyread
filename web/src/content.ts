@@ -22,6 +22,15 @@ export function sanitizeArticle(html: string): string {
       if (/^https?:/.test(element.href)) element.target = "_blank";
     }
   }
+  for (const image of [...root.querySelectorAll("img")]) {
+    if (image.getAttribute("src")) continue;
+    const description = image.getAttribute("alt")?.trim();
+    if (!description) { image.remove(); continue; }
+    const figure = document.createElement("span");
+    figure.className = "figure-desc";
+    figure.textContent = description;
+    image.replaceWith(figure);
+  }
   return root.innerHTML;
 }
 
@@ -64,19 +73,39 @@ export function attachWordTimings(root: HTMLElement, words: WordTiming[]): Map<n
   let cursor = 0;
   let previousIndex = 0;
   const maxLookahead = 64;
+  const confirmDepth = 2;
+  const elementTexts = elements.map((element) => normalize(element.textContent ?? ""));
+  const spokenTexts = words.map((word) => typeof word.displayWordId === "string" ? normalize(word.text) : null);
+  // A candidate away from the cursor is only trusted when the narration that follows
+  // it keeps matching the display run — a lone stopword match (e.g. "a" inside a
+  // narration-only figure description) must not drag the cursor across the article.
+  const confirmed = (position: number, candidate: number): boolean => {
+    let elementCursor = candidate + 1;
+    let checks = 0;
+    for (let next = position + 1; next < words.length && checks < confirmDepth; next += 1) {
+      const target = spokenTexts[next];
+      if (target === null || target === undefined) continue;
+      const found = elementTexts.slice(elementCursor, elementCursor + 3).indexOf(target);
+      if (found < 0) return false;
+      elementCursor += found + 1;
+      checks += 1;
+    }
+    return checks > 0;
+  };
   for (const [position, word] of words.entries()) {
     let index = position;
     if (word.displayWordId === null) {
       index = previousIndex;
     } else if (word.displayWordId !== undefined) {
-      const target = normalize(word.text);
-      const match = elements.findIndex((element, candidate) =>
-        candidate >= cursor &&
-        candidate <= cursor + maxLookahead &&
-        normalize(element.textContent ?? "") === target,
-      );
-      if (match >= 0) { index = match; cursor = match + 1; previousIndex = match; }
-      else index = previousIndex;
+      index = previousIndex;
+      const target = spokenTexts[position]!;
+      const limit = Math.min(elements.length, cursor + maxLookahead + 1);
+      for (let candidate = cursor; candidate < limit; candidate += 1) {
+        if (elementTexts[candidate] !== target) continue;
+        if (candidate !== cursor && !confirmed(position, candidate)) continue;
+        index = candidate; cursor = candidate + 1; previousIndex = candidate;
+        break;
+      }
     }
     word.index = index;
     const element = elements[index];

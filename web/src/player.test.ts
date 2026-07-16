@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { findWordAtTime, getShortcut, sentenceRanges, shouldHandleShortcut, toggleHighlight } from "./player";
+import { findWordAtTime, getShortcut, lastWordStartedBefore, sentenceRanges, shouldHandleShortcut, toggleHighlight } from "./player";
 
 const words = [
   { index: 0, text: "One", start: 0, end: 0.4 },
@@ -13,6 +13,12 @@ describe("player seams", () => {
   it("finds the latest word at a playback time", () => {
     expect(findWordAtTime(words, 0.55)).toBe(1);
     expect(findWordAtTime(words, 1.19)).toBe(-1);
+  });
+
+  it("anchors to the last started word inside a silence gap", () => {
+    expect(lastWordStartedBefore(words, 1.19)).toBe(1);
+    expect(lastWordStartedBefore(words, 5)).toBe(3);
+    expect(lastWordStartedBefore(words, -0.1)).toBe(-1);
   });
 
   it("maps navigation and playback keys without claiming Space", () => {
