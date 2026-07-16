@@ -5,9 +5,6 @@ speech, synchronized word highlighting, auto-scroll, and saved highlights.
 
 https://github.com/user-attachments/assets/df6f44ee-572a-4a08-a0d8-7d8acc78fb6b
 
-In 43 seconds: skip by paragraph, speed up from the keyboard, follow
-auto-scroll, save sentences, step word by word, and copy your highlights.
-
 ## Install
 
 Lazyread currently supports Apple Silicon Macs running macOS 14 or newer. It
@@ -52,13 +49,14 @@ The readable article appears within seconds, while narration continues in the
 background. Generation time depends on article length, Mac hardware, and cache
 hits. On the tested M4 Pro:
 
-- the 1,145-word TRACE paper produced 9:38 of audio in 1:11;
-- a 10,068-word research paper produced 108:04 of audio in 70:16.
+| Article length | Generation time | Audio produced | Finished audio size |
+| ---: | ---: | ---: | ---: |
+| 1,145 words | 1:11 | 9:38 | 13 MB |
+| 10,068 words | 70:16 | 108:04 | 125 MB |
 
-The player may need a little longer to preload the finished track: about 13 MB
-for TRACE and 125 MB for the long paper. Another browser or device performs its
-own one-time preload. Run `uvx lazyread storage` to see the space used by
-articles, temporary chunks, and models.
+Each browser or device performs its own one-time preload of the finished audio.
+Run `uvx lazyread storage` to see the space used by articles, temporary chunks,
+and models.
 
 ## What you get
 
